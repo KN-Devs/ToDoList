@@ -1,4 +1,4 @@
 package com.todolist.portfolio.dto;
 
-public class AuthResponse {
+public record AuthResponse(String token) {
 }
