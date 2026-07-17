@@ -1,6 +1,7 @@
 package com.todolist.portfolio.service;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -37,12 +38,12 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
-        String username = extractUsername(token);
-        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
-    }
-
-    private boolean isTokenExpired(String token) {
-        return parseClaims(token).getExpiration().before(new Date());
+        try {
+            String username = extractUsername(token);
+            return username.equals(userDetails.getUsername());
+        } catch (JwtException e) {
+            return false;
+        }
     }
 
     private Claims parseClaims(String token) {
