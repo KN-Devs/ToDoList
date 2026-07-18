@@ -6,6 +6,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -36,6 +37,15 @@ public class User  implements UserDetails {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
+
+    @Column(name = "lockout_stage", nullable = false)
+    private int lockoutStage = 0;
 
     public User() {
     }
@@ -97,6 +107,30 @@ public class User  implements UserDetails {
         this.role = role;
     }
 
+    public int getFailedLoginAttempts() {
+        return failedLoginAttempts;
+    }
+
+    public void setFailedLoginAttempts(int failedLoginAttempts) {
+        this.failedLoginAttempts = failedLoginAttempts;
+    }
+
+    public Instant getLockedUntil() {
+        return lockedUntil;
+    }
+
+    public void setLockedUntil(Instant lockedUntil) {
+        this.lockedUntil = lockedUntil;
+    }
+
+    public int getLockoutStage() {
+        return lockoutStage;
+    }
+
+    public void setLockoutStage(int lockoutStage) {
+        this.lockoutStage = lockoutStage;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
@@ -130,8 +164,13 @@ public class User  implements UserDetails {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
-
-
+    @Override
+    public boolean isAccountNonLocked() {
+        if (lockoutStage >= 4) {
+            return false;
+        }
+        return lockedUntil == null || lockedUntil.isBefore(Instant.now());
+    }
 
 
 }
