@@ -1,4 +1,5 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { TaskService } from '../../../core/services/task.service';
@@ -10,10 +11,12 @@ import {
   TaskStatus,
 } from '../../../core/models/task.model';
 
+export type TasksTab = 'board' | 'create';
+
 @Component({
   selector: 'app-task-list',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, DragDropModule],
   templateUrl: './task-list.html',
   styleUrl: './task-list.scss',
 })
@@ -24,6 +27,17 @@ export class TaskList implements OnInit {
 
   readonly statuses = TASK_STATUSES;
   readonly statusLabels = TASK_STATUS_LABELS;
+  readonly dropListIds = TASK_STATUSES.map((status) => `drop-list-${status}`);
+
+  readonly activeTab = signal<TasksTab>('board');
+
+  readonly tasksByStatus = computed(() => {
+    const grouped: Record<TaskStatus, Task[]> = { TODO: [], IN_PROGRESS: [], DONE: [] };
+    for (const task of this.tasks()) {
+      grouped[task.status].push(task);
+    }
+    return grouped;
+  });
 
   newTask: TaskRequest = { nom: '', description: '', status: 'TODO' };
   readonly creating = signal(false);
@@ -68,6 +82,7 @@ export class TaskList implements OnInit {
         this.tasks.update((tasks) => [...tasks, task]);
         this.newTask = { nom: '', description: '', status: 'TODO' };
         this.creating.set(false);
+        this.activeTab.set('board');
       },
       error: () => {
         this.errorMessage.set('Impossible de créer la tâche');
@@ -104,6 +119,27 @@ export class TaskList implements OnInit {
       next: () => this.tasks.update((tasks) => tasks.filter((t) => t.id !== task.id)),
       error: () => this.errorMessage.set('Impossible de supprimer la tâche'),
     });
+  }
+
+  changeStatus(task: Task, newStatus: TaskStatus): void {
+    if (task.status === newStatus) {
+      return;
+    }
+
+    this.taskService
+      .update(task.id, { nom: task.nom, description: task.description, status: newStatus })
+      .subscribe({
+        next: (updated) => this.tasks.update((tasks) => tasks.map((t) => (t.id === updated.id ? updated : t))),
+        error: () => this.errorMessage.set('Impossible de déplacer la tâche'),
+      });
+  }
+
+  onDrop(event: CdkDragDrop<Task[]>, newStatus: TaskStatus): void {
+    if (event.previousContainer === event.container) {
+      return;
+    }
+
+    this.changeStatus(event.item.data as Task, newStatus);
   }
 
   statusLabel(status: TaskStatus): string {
