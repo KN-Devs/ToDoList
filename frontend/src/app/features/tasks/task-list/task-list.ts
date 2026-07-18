@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { TaskService } from '../../../core/services/task.service';
@@ -9,6 +9,8 @@ import {
   TaskRequest,
   TaskStatus,
 } from '../../../core/models/task.model';
+
+export type StatusFilter = TaskStatus | 'ALL';
 
 @Component({
   selector: 'app-task-list',
@@ -24,6 +26,24 @@ export class TaskList implements OnInit {
 
   readonly statuses = TASK_STATUSES;
   readonly statusLabels = TASK_STATUS_LABELS;
+
+  readonly searchQuery = signal('');
+  readonly statusFilter = signal<StatusFilter>('ALL');
+
+  readonly filteredTasks = computed(() => {
+    const query = this.searchQuery().trim().toLowerCase();
+    const status = this.statusFilter();
+
+    return this.tasks().filter((task) => {
+      const matchesStatus = status === 'ALL' || task.status === status;
+      const matchesQuery =
+        !query ||
+        task.nom.toLowerCase().includes(query) ||
+        task.description.toLowerCase().includes(query);
+
+      return matchesStatus && matchesQuery;
+    });
+  });
 
   newTask: TaskRequest = { nom: '', description: '', status: 'TODO' };
   readonly creating = signal(false);

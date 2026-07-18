@@ -33,13 +33,37 @@
   <p class="error">{{ errorMessage() }}</p>
 }
 
+@if (!loading() && tasks().length > 0) {
+  <div class="task-filters">
+    <input
+      type="search"
+      placeholder="Rechercher une tâche..."
+      [ngModel]="searchQuery()"
+      (ngModelChange)="searchQuery.set($event)"
+      name="search"
+    />
+    <select
+      [ngModel]="statusFilter()"
+      (ngModelChange)="statusFilter.set($event)"
+      name="status-filter"
+    >
+      <option value="ALL">Tous les statuts</option>
+      @for (status of statuses; track status) {
+        <option [value]="status">{{ statusLabel(status) }}</option>
+      }
+    </select>
+  </div>
+}
+
 @if (loading()) {
   <p class="empty-state">Chargement...</p>
 } @else if (tasks().length === 0) {
   <p class="empty-state">Aucune tâche pour le moment.</p>
+} @else if (filteredTasks().length === 0) {
+  <p class="empty-state">Aucune tâche ne correspond à ta recherche.</p>
 } @else {
   <ul class="task-list">
-    @for (task of tasks(); track task.id) {
+    @for (task of filteredTasks(); track task.id) {
       <li class="task-card">
         @if (editingId() === task.id) {
           <label>

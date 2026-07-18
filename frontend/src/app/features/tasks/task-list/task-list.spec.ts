@@ -14,6 +14,14 @@ const TASK: Task = {
   email: 'marie@example.com',
 };
 
+const OTHER_TASK: Task = {
+  id: 2,
+  nom: 'Corriger un bug',
+  description: 'Le formulaire plante sur Firefox',
+  status: 'DONE',
+  email: 'marie@example.com',
+};
+
 describe('TaskList', () => {
   let taskService: {
     getAll: ReturnType<typeof vi.fn>;
@@ -143,5 +151,35 @@ describe('TaskList', () => {
 
   it('statusLabel() returns the French label for a status', () => {
     expect(component.statusLabel('IN_PROGRESS')).toBe('En cours');
+  });
+
+  describe('filteredTasks', () => {
+    beforeEach(() => {
+      taskService.getAll.mockReturnValue(of([TASK, OTHER_TASK]));
+      component.ngOnInit();
+    });
+
+    it('returns every task when there is no filter', () => {
+      expect(component.filteredTasks()).toEqual([TASK, OTHER_TASK]);
+    });
+
+    it('filters by status', () => {
+      component.statusFilter.set('DONE');
+
+      expect(component.filteredTasks()).toEqual([OTHER_TASK]);
+    });
+
+    it('filters by a search query matching the name or description, case-insensitively', () => {
+      component.searchQuery.set('firefox');
+
+      expect(component.filteredTasks()).toEqual([OTHER_TASK]);
+    });
+
+    it('combines the status filter and the search query', () => {
+      component.statusFilter.set('TODO');
+      component.searchQuery.set('bug');
+
+      expect(component.filteredTasks()).toEqual([]);
+    });
   });
 });
