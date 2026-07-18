@@ -1,0 +1,15 @@
+@if (authService.isAuthenticated()) {
+  <header class="app-header">
+    <span class="brand">ToDoList</span>
+    <div class="header-actions">
+      @if (authService.currentUser(); as user) {
+        <span>{{ user.prenom }} {{ user.nom }}</span>
+      }
+      <button type="button" class="secondary" (click)="logout()">Déconnexion</button>
+    </div>
+  </header>
+}
+
+<main class="app-main">
+  <router-outlet />
+</main>

@@ -1,0 +1,34 @@
+<div class="auth-page">
+  <form class="auth-card" (ngSubmit)="submit()">
+    <h1>Connexion</h1>
+
+    <label>
+      Email
+      <input type="email" name="email" [(ngModel)]="email" required autocomplete="email" />
+    </label>
+
+    <label>
+      Mot de passe
+      <input
+        type="password"
+        name="password"
+        [(ngModel)]="password"
+        required
+        autocomplete="current-password"
+      />
+    </label>
+
+    @if (errorMessage()) {
+      <p class="error">{{ errorMessage() }}</p>
+    }
+
+    <button type="submit" [disabled]="loading()">
+      {{ loading() ? 'Connexion...' : 'Se connecter' }}
+    </button>
+
+    <p class="switch">
+      Pas encore de compte ?
+      <a routerLink="/register">Créer un compte</a>
+    </p>
+  </form>
+</div>

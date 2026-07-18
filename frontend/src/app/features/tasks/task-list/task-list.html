@@ -1,0 +1,86 @@
+<div class="task-page-header">
+  <h1>Mes tâches</h1>
+</div>
+
+<form class="task-form" (ngSubmit)="createTask()">
+  <label>
+    Nom
+    <input type="text" name="nom" [(ngModel)]="newTask.nom" required />
+  </label>
+
+  <label>
+    Description
+    <textarea name="description" rows="2" [(ngModel)]="newTask.description" required></textarea>
+  </label>
+
+  <label>
+    Statut
+    <select name="status" [(ngModel)]="newTask.status">
+      @for (status of statuses; track status) {
+        <option [value]="status">{{ statusLabel(status) }}</option>
+      }
+    </select>
+  </label>
+
+  <div class="form-actions">
+    <button type="submit" [disabled]="creating()">
+      {{ creating() ? 'Ajout...' : 'Ajouter la tâche' }}
+    </button>
+  </div>
+</form>
+
+@if (errorMessage()) {
+  <p class="error">{{ errorMessage() }}</p>
+}
+
+@if (loading()) {
+  <p class="empty-state">Chargement...</p>
+} @else if (tasks().length === 0) {
+  <p class="empty-state">Aucune tâche pour le moment.</p>
+} @else {
+  <ul class="task-list">
+    @for (task of tasks(); track task.id) {
+      <li class="task-card">
+        @if (editingId() === task.id) {
+          <label>
+            Nom
+            <input type="text" name="edit-nom-{{ task.id }}" [(ngModel)]="editForm.nom" required />
+          </label>
+          <label>
+            Description
+            <textarea
+              name="edit-description-{{ task.id }}"
+              rows="2"
+              [(ngModel)]="editForm.description"
+              required
+            ></textarea>
+          </label>
+          <label>
+            Statut
+            <select name="edit-status-{{ task.id }}" [(ngModel)]="editForm.status">
+              @for (status of statuses; track status) {
+                <option [value]="status">{{ statusLabel(status) }}</option>
+              }
+            </select>
+          </label>
+          <div class="task-card-actions">
+            <button type="button" (click)="saveEdit(task)">Enregistrer</button>
+            <button type="button" class="secondary" (click)="cancelEdit()">Annuler</button>
+          </div>
+        } @else {
+          <div class="task-card-top">
+            <div>
+              <h3>{{ task.nom }}</h3>
+              <p>{{ task.description }}</p>
+            </div>
+            <span class="status-badge status-{{ task.status }}">{{ statusLabel(task.status) }}</span>
+          </div>
+          <div class="task-card-actions">
+            <button type="button" class="secondary" (click)="startEdit(task)">Modifier</button>
+            <button type="button" class="danger" (click)="deleteTask(task)">Supprimer</button>
+          </div>
+        }
+      </li>
+    }
+  </ul>
+}
