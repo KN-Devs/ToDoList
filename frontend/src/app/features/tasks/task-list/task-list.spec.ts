@@ -227,4 +227,57 @@ describe('TaskList', () => {
       });
     });
   });
+
+  describe('task detail', () => {
+    it('openDetail() selects the task', () => {
+      component.openDetail(TASK);
+
+      expect(component.selectedTask()).toEqual(TASK);
+    });
+
+    it('openDetail() does nothing while the task is being edited', () => {
+      component.startEdit(TASK);
+
+      component.openDetail(TASK);
+
+      expect(component.selectedTask()).toBeNull();
+    });
+
+    it('closeDetail() clears the selection', () => {
+      component.openDetail(TASK);
+
+      component.closeDetail();
+
+      expect(component.selectedTask()).toBeNull();
+    });
+
+    it('editFromDetail() closes the modal and starts editing', () => {
+      component.openDetail(TASK);
+
+      component.editFromDetail(TASK);
+
+      expect(component.selectedTask()).toBeNull();
+      expect(component.editingId()).toBe(TASK.id);
+    });
+
+    it('deleteFromDetail() closes the modal and deletes the task', () => {
+      component.ngOnInit();
+      confirmSpy.mockReturnValue(true);
+      taskService.delete.mockReturnValue(of(undefined));
+      component.openDetail(TASK);
+
+      component.deleteFromDetail(TASK);
+
+      expect(component.selectedTask()).toBeNull();
+      expect(taskService.delete).toHaveBeenCalledWith(TASK.id);
+    });
+
+    it('onEscapeKey() closes the modal', () => {
+      component.openDetail(TASK);
+
+      component.onEscapeKey();
+
+      expect(component.selectedTask()).toBeNull();
+    });
+  });
 });

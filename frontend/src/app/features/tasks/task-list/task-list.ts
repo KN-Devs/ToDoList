@@ -1,5 +1,5 @@
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, HostListener, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { TaskService } from '../../../core/services/task.service';
@@ -44,6 +44,8 @@ export class TaskList implements OnInit {
 
   readonly editingId = signal<number | null>(null);
   editForm: TaskRequest = { nom: '', description: '', status: 'TODO' };
+
+  readonly selectedTask = signal<Task | null>(null);
 
   constructor(
     private readonly taskService: TaskService,
@@ -140,6 +142,33 @@ export class TaskList implements OnInit {
     }
 
     this.changeStatus(event.item.data as Task, newStatus);
+  }
+
+  openDetail(task: Task): void {
+    if (this.editingId() === task.id) {
+      return;
+    }
+
+    this.selectedTask.set(task);
+  }
+
+  closeDetail(): void {
+    this.selectedTask.set(null);
+  }
+
+  editFromDetail(task: Task): void {
+    this.closeDetail();
+    this.startEdit(task);
+  }
+
+  deleteFromDetail(task: Task): void {
+    this.closeDetail();
+    this.deleteTask(task);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    this.closeDetail();
   }
 
   statusLabel(status: TaskStatus): string {

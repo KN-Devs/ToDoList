@@ -324,10 +324,11 @@ label {
   font-size: 0.9rem;
 }
 
-.task-card .task-owner {
+.task-owner {
   margin-top: 0.35rem;
   font-size: 0.78rem;
   font-style: italic;
+  color: var(--color-text-muted);
 }
 
 .task-card-actions {
@@ -365,6 +366,65 @@ label {
   text-align: center;
   color: var(--color-text-muted);
   padding: 2rem 0;
+}
+
+/* Task detail modal */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 17, 26, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 100;
+}
+
+.modal-card {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  animation: modal-in 0.15s ease-out;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+
+  h2 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+}
+
+.modal-close {
+  padding: 0.25rem 0.6rem;
+  flex-shrink: 0;
+}
+
+.modal-description {
+  margin: 1rem 0 0.5rem;
+  color: var(--color-text);
+  white-space: pre-wrap;
 }
 
 /* Responsive */
