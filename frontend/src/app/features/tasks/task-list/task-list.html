@@ -5,7 +5,7 @@
 <form class="task-form" (ngSubmit)="createTask()">
   <label>
     Nom
-    <input type="text" name="nom" [(ngModel)]="newTask.nom" required />
+    <input type="text" name="nom" [(ngModel)]="newTask.nom" required maxlength="40" />
   </label>
 
   <label>
@@ -44,7 +44,13 @@
         @if (editingId() === task.id) {
           <label>
             Nom
-            <input type="text" name="edit-nom-{{ task.id }}" [(ngModel)]="editForm.nom" required />
+            <input
+              type="text"
+              name="edit-nom-{{ task.id }}"
+              [(ngModel)]="editForm.nom"
+              required
+              maxlength="40"
+            />
           </label>
           <label>
             Description

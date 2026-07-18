@@ -1,11 +1,20 @@
 package com.todolist.portfolio.dto;
 
 import com.todolist.portfolio.entity.TaskStatus;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public class TaskRequest {
 
+    @NotBlank
+    @Size(max = 40)
     private String nom;
+
+    @NotBlank
     private String description;
+
+    @NotNull
     private TaskStatus status;
 
     public TaskRequest() {

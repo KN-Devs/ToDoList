@@ -7,6 +7,7 @@ import com.todolist.portfolio.entity.Role;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.repository.UserRepository;
 import com.todolist.portfolio.service.JwtService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -39,7 +40,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public AuthResponse register(@RequestBody RegisterRequest request) {
+    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
         User user = new User(
                 null,
                 request.getNom(),
