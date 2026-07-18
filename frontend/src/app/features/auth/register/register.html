@@ -4,17 +4,38 @@
 
     <label>
       Nom
-      <input type="text" name="nom" [(ngModel)]="nom" required autocomplete="family-name" />
+      <input
+        type="text"
+        name="nom"
+        [(ngModel)]="nom"
+        required
+        maxlength="40"
+        autocomplete="family-name"
+      />
     </label>
 
     <label>
       Prénom
-      <input type="text" name="prenom" [(ngModel)]="prenom" required autocomplete="given-name" />
+      <input
+        type="text"
+        name="prenom"
+        [(ngModel)]="prenom"
+        required
+        maxlength="40"
+        autocomplete="given-name"
+      />
     </label>
 
     <label>
       Email
-      <input type="email" name="email" [(ngModel)]="email" required autocomplete="email" />
+      <input
+        type="email"
+        name="email"
+        [(ngModel)]="email"
+        required
+        maxlength="100"
+        autocomplete="email"
+      />
     </label>
 
     <label>
@@ -24,6 +45,7 @@
         name="password"
         [(ngModel)]="password"
         required
+        minlength="8"
         autocomplete="new-password"
       />
     </label>

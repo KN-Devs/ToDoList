@@ -4,6 +4,7 @@ import com.todolist.portfolio.dto.TaskRequest;
 import com.todolist.portfolio.dto.TaskResponse;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.service.TaskService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -31,7 +32,7 @@ public class TaskController {
     }
 
     @PostMapping
-    public TaskResponse create(@RequestBody TaskRequest request, Authentication authentication) {
+    public TaskResponse create(@Valid @RequestBody TaskRequest request, Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
         return taskService.create(request, currentUser);
     }
@@ -49,7 +50,7 @@ public class TaskController {
     }
 
     @PutMapping("/{id}")
-    public TaskResponse update(@PathVariable Integer id, @RequestBody TaskRequest request, Authentication authentication) {
+    public TaskResponse update(@PathVariable Integer id, @Valid @RequestBody TaskRequest request, Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
         return taskService.update(id, request, currentUser);
     }
