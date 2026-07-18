@@ -1,5 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AuthService } from '../../../core/services/auth.service';
 import { TaskService } from '../../../core/services/task.service';
 import {
   TASK_STATUSES,
@@ -30,7 +31,10 @@ export class TaskList implements OnInit {
   readonly editingId = signal<number | null>(null);
   editForm: TaskRequest = { nom: '', description: '', status: 'TODO' };
 
-  constructor(private readonly taskService: TaskService) {}
+  constructor(
+    private readonly taskService: TaskService,
+    protected readonly authService: AuthService
+  ) {}
 
   ngOnInit(): void {
     this.reload();

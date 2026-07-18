@@ -1,5 +1,5 @@
 <div class="task-page-header">
-  <h1>Mes tâches</h1>
+  <h1>{{ authService.isAdmin() ? 'Toutes les tâches' : 'Mes tâches' }}</h1>
 </div>
 
 <form class="task-form" (ngSubmit)="createTask()">
@@ -72,6 +72,9 @@
             <div>
               <h3>{{ task.nom }}</h3>
               <p>{{ task.description }}</p>
+              @if (authService.isAdmin()) {
+                <p class="task-owner">{{ task.email }}</p>
+              }
             </div>
             <span class="status-badge status-{{ task.status }}">{{ statusLabel(task.status) }}</span>
           </div>
