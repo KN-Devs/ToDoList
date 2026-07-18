@@ -287,3 +287,55 @@ label {
   color: var(--color-text-muted);
   padding: 2rem 0;
 }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .app-header {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .app-main {
+    padding: 1rem;
+  }
+
+  .auth-card {
+    padding: 1.5rem;
+  }
+
+  .task-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .task-card-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .task-card-actions {
+    flex-wrap: wrap;
+  }
+
+  .task-card-actions button,
+  .task-form .form-actions button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 400px) {
+  .auth-card {
+    padding: 1.25rem;
+  }
+
+  h1 {
+    font-size: 1.3rem;
+  }
+}
