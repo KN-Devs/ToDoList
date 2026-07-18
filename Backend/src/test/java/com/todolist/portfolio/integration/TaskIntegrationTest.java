@@ -36,7 +36,7 @@ class TaskIntegrationTest {
     private TestRestTemplate restTemplate;
 
     private String registerAndGetToken(String email) {
-        RegisterRequest request = new RegisterRequest("Nom", "Prenom", email, "password123");
+        RegisterRequest request = new RegisterRequest("Nom", "Prenom", email, "Password123!");
         ResponseEntity<AuthResponse> response = restTemplate.postForEntity("/api/auth/register", request, AuthResponse.class);
         return response.getBody().token();
     }
@@ -52,7 +52,7 @@ class TaskIntegrationTest {
         String email = "integration1@test.com";
         registerAndGetToken(email);
 
-        LoginRequest loginRequest = new LoginRequest(email, "password123");
+        LoginRequest loginRequest = new LoginRequest(email, "Password123!");
         ResponseEntity<AuthResponse> loginResponse = restTemplate.postForEntity("/api/auth/login", loginRequest, AuthResponse.class);
 
         assertThat(loginResponse.getStatusCode()).isEqualTo(HttpStatus.OK);

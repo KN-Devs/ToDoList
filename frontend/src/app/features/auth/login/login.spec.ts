@@ -42,8 +42,8 @@ describe('Login', () => {
     expect(navigate).toHaveBeenCalledWith(['/tasks']);
   });
 
-  it('shows an error message when login fails', () => {
-    login.mockReturnValue(throwError(() => new Error('unauthorized')));
+  it('shows a generic error message on incorrect credentials', () => {
+    login.mockReturnValue(throwError(() => ({ status: 401, error: 'Email ou mot de passe incorrect' })));
     component.email = 'marie@example.com';
     component.password = 'wrong-password';
 
@@ -52,5 +52,17 @@ describe('Login', () => {
     expect(component.errorMessage()).toBe('Email ou mot de passe incorrect');
     expect(component.loading()).toBe(false);
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('shows the lockout message returned by the backend on a 423 response', () => {
+    const lockoutMessage = 'Compte temporairement verrouillé suite à plusieurs échecs de connexion. Réessayez dans 5 minutes.';
+    login.mockReturnValue(throwError(() => ({ status: 423, error: lockoutMessage })));
+    component.email = 'marie@example.com';
+    component.password = 'wrong-password';
+
+    component.submit();
+
+    expect(component.errorMessage()).toBe(lockoutMessage);
+    expect(component.loading()).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -32,8 +33,12 @@ export class Login {
 
     this.authService.login({ email: this.email, password: this.password }).subscribe({
       next: () => this.router.navigate(['/tasks']),
-      error: () => {
-        this.errorMessage.set('Email ou mot de passe incorrect');
+      error: (error: HttpErrorResponse) => {
+        this.errorMessage.set(
+          error.status === 423 && typeof error.error === 'string'
+            ? error.error
+            : 'Email ou mot de passe incorrect'
+        );
         this.loading.set(false);
       },
     });
