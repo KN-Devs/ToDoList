@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
-import { Observable, tap } from 'rxjs';
+import { Observable, switchMap, tap } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { AuthResponse, LoginRequest, RegisterRequest, User } from '../models/auth.model';
 
@@ -17,16 +17,18 @@ export class AuthService {
 
   constructor(private readonly http: HttpClient) {}
 
-  register(request: RegisterRequest): Observable<AuthResponse> {
-    return this.http
-      .post<AuthResponse>(`${API_BASE_URL}/auth/register`, request)
-      .pipe(tap((response) => this.setToken(response.token)));
+  register(request: RegisterRequest): Observable<User> {
+    return this.http.post<AuthResponse>(`${API_BASE_URL}/auth/register`, request).pipe(
+      tap((response) => this.setToken(response.token)),
+      switchMap(() => this.loadCurrentUser())
+    );
   }
 
-  login(request: LoginRequest): Observable<AuthResponse> {
-    return this.http
-      .post<AuthResponse>(`${API_BASE_URL}/auth/login`, request)
-      .pipe(tap((response) => this.setToken(response.token)));
+  login(request: LoginRequest): Observable<User> {
+    return this.http.post<AuthResponse>(`${API_BASE_URL}/auth/login`, request).pipe(
+      tap((response) => this.setToken(response.token)),
+      switchMap(() => this.loadCurrentUser())
+    );
   }
 
   loadCurrentUser(): Observable<User> {
