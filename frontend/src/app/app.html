@@ -4,6 +4,9 @@
     <div class="header-actions">
       @if (authService.currentUser(); as user) {
         <span>{{ user.prenom }} {{ user.nom }}</span>
+        @if (authService.isAdmin()) {
+          <span class="role-badge">Admin</span>
+        }
       }
       <button type="button" class="secondary" (click)="logout()">Déconnexion</button>
     </div>
