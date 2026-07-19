@@ -81,6 +81,8 @@ docker compose up --build
 - API : http://localhost:8080/api
 - Documentation Swagger : http://localhost:8080/swagger-ui/index.html
 
+Pour un déploiement sur une infrastructure réelle (Render), voir [`DEPLOYMENT.md`](DEPLOYMENT.md).
+
 ## Développement local
 
 ### Prérequis
