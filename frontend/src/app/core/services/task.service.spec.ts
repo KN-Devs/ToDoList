@@ -5,6 +5,8 @@ import { API_BASE_URL } from '../config/api.config';
 import { Task, TaskRequest } from '../models/task.model';
 import { TaskService } from './task.service';
 
+const PROJECT_ID = 7;
+
 const TASK: Task = {
   id: 1,
   nom: 'Préparer la démo',
@@ -28,23 +30,23 @@ describe('TaskService', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('getAll() fetches the task list', () => {
+  it('getAllForProject() fetches the task list of a project', () => {
     let result: Task[] | undefined;
-    service.getAll().subscribe((tasks) => (result = tasks));
+    service.getAllForProject(PROJECT_ID).subscribe((tasks) => (result = tasks));
 
-    const req = httpMock.expectOne(`${API_BASE_URL}/tasks`);
+    const req = httpMock.expectOne(`${API_BASE_URL}/projects/${PROJECT_ID}/tasks`);
     expect(req.request.method).toBe('GET');
     req.flush([TASK]);
 
     expect(result).toEqual([TASK]);
   });
 
-  it('create() posts the new task', () => {
+  it('create() posts the new task under the project', () => {
     const request: TaskRequest = { nom: TASK.nom, description: TASK.description, status: 'TODO' };
     let result: Task | undefined;
-    service.create(request).subscribe((task) => (result = task));
+    service.create(PROJECT_ID, request).subscribe((task) => (result = task));
 
-    const req = httpMock.expectOne(`${API_BASE_URL}/tasks`);
+    const req = httpMock.expectOne(`${API_BASE_URL}/projects/${PROJECT_ID}/tasks`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(request);
     req.flush(TASK);

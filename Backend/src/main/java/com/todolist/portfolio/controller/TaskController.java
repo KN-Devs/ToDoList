@@ -16,13 +16,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/tasks")
 public class TaskController {
 
     private final TaskService taskService;
@@ -31,31 +29,32 @@ public class TaskController {
         this.taskService = taskService;
     }
 
-    @PostMapping
-    public TaskResponse create(@Valid @RequestBody TaskRequest request, Authentication authentication) {
+    @PostMapping("/api/projects/{projectId}/tasks")
+    public TaskResponse create(@PathVariable Integer projectId, @Valid @RequestBody TaskRequest request,
+                                Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
-        return taskService.create(request, currentUser);
+        return taskService.create(projectId, request, currentUser);
     }
 
-    @GetMapping
-    public List<TaskResponse> getAll(Authentication authentication) {
+    @GetMapping("/api/projects/{projectId}/tasks")
+    public List<TaskResponse> getAllForProject(@PathVariable Integer projectId, Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
-        return taskService.getAll(currentUser);
+        return taskService.getAllForProject(projectId, currentUser);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/api/tasks/{id}")
     public TaskResponse getById(@PathVariable Integer id, Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
         return taskService.getById(id, currentUser);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/api/tasks/{id}")
     public TaskResponse update(@PathVariable Integer id, @Valid @RequestBody TaskRequest request, Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
         return taskService.update(id, request, currentUser);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/api/tasks/{id}")
     public void delete(@PathVariable Integer id, Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
         taskService.delete(id, currentUser);
@@ -63,6 +62,6 @@ public class TaskController {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<String> handleAccessDenied(AccessDeniedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Accès refusé à cette ressource");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
     }
 }

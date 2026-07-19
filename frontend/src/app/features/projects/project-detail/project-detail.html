@@ -1,0 +1,100 @@
+@if (loading()) {
+  <p class="empty-state">Chargement...</p>
+} @else if (!project()) {
+  <p class="error">{{ errorMessage() }}</p>
+} @else if (project(); as project) {
+  <div class="page-header">
+    <div>
+      <a routerLink="/projects" class="hint">&larr; Mes projets</a>
+      <h1>{{ project.nom }}</h1>
+    </div>
+    @if (isOwner()) {
+      <div class="project-card-actions">
+        <button type="button" class="secondary" (click)="startEdit(project)">Modifier</button>
+        <button type="button" class="danger" (click)="deleteProject(project)">Supprimer</button>
+      </div>
+    }
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (!editing()) {
+    <p class="hint">{{ project.startDate }} → {{ project.endDate }}</p>
+    <p class="modal-description">{{ project.description }}</p>
+    <p class="task-owner">Propriétaire : {{ project.ownerEmail }}</p>
+
+    <h3>Membres</h3>
+    @if (project.members.length === 0) {
+      <p class="hint">Aucun membre pour l'instant.</p>
+    } @else {
+      <ul class="member-list">
+        @for (member of project.members; track member.email) {
+          <li>
+            <span>{{ member.email }}</span>
+            @if (isOwner()) {
+              <label class="permission-toggle">
+                <input
+                  type="checkbox"
+                  [checked]="member.canManageTasks"
+                  (change)="toggleMemberPermission(project, member.email, !member.canManageTasks)"
+                />
+                Peut gérer les tâches
+              </label>
+              <button type="button" class="secondary" (click)="removeMember(project, member.email)">
+                Retirer
+              </button>
+            } @else if (member.canManageTasks) {
+              <span class="hint">Peut gérer les tâches</span>
+            }
+          </li>
+        }
+      </ul>
+    }
+
+    @if (isOwner()) {
+      <form class="add-member-form" (ngSubmit)="addMember(project)">
+        <label>
+          Ajouter une personne par email
+          <input
+            type="email"
+            name="newMemberEmail"
+            [(ngModel)]="newMemberEmail"
+            placeholder="email@exemple.com"
+          />
+        </label>
+        @if (memberError()) {
+          <p class="error">{{ memberError() }}</p>
+        }
+        <button type="submit" [disabled]="addingMember()">
+          {{ addingMember() ? 'Ajout...' : 'Ajouter' }}
+        </button>
+      </form>
+    }
+  } @else {
+    <label>
+      Nom
+      <input type="text" name="edit-nom" [(ngModel)]="editForm.nom" required maxlength="100" />
+    </label>
+    <label>
+      Description
+      <textarea name="edit-description" rows="3" [(ngModel)]="editForm.description" required></textarea>
+    </label>
+    <label>
+      Date de début
+      <input type="date" name="edit-startDate" [(ngModel)]="editForm.startDate" required />
+    </label>
+    <label>
+      Date de fin
+      <input type="date" name="edit-endDate" [(ngModel)]="editForm.endDate" required />
+    </label>
+    <div class="project-card-actions">
+      <button type="button" (click)="saveEdit(project)">Enregistrer</button>
+      <button type="button" class="secondary" (click)="cancelEdit()">Annuler</button>
+    </div>
+  }
+
+  <h2 class="tasks-heading">Tâches du projet</h2>
+  <app-task-list [projectId]="project.id" [canManage]="canManageTasks()" />
+}

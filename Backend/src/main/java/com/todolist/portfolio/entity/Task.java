@@ -28,15 +28,20 @@ public class Task {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @ManyToOne
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
+
     public Task() {
     }
 
-    public Task(Integer id, String nom, String description, TaskStatus status, User user) {
+    public Task(Integer id, String nom, String description, TaskStatus status, User user, Project project) {
         this.id = id;
         this.nom = nom;
         this.description = description;
         this.status = status;
         this.user = user;
+        this.project = project;
     }
 
     public Integer getId() {
@@ -77,6 +82,14 @@ public class Task {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public Project getProject() {
+        return project;
+    }
+
+    public void setProject(Project project) {
+        this.project = project;
     }
 
     @Override

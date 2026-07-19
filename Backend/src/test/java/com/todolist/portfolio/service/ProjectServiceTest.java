@@ -3,6 +3,7 @@ package com.todolist.portfolio.service;
 import com.todolist.portfolio.dto.ProjectRequest;
 import com.todolist.portfolio.dto.ProjectResponse;
 import com.todolist.portfolio.entity.Project;
+import com.todolist.portfolio.entity.ProjectMember;
 import com.todolist.portfolio.entity.Role;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.repository.ProjectRepository;
@@ -125,7 +126,7 @@ class ProjectServiceTest {
 
         ProjectResponse result = projectService.addMember(10, "carol@test.com", bob);
 
-        assertThat(result.memberEmails()).containsExactly("carol@test.com");
+        assertThat(result.members()).extracting("email").containsExactly("carol@test.com");
     }
 
     @Test
@@ -154,12 +155,12 @@ class ProjectServiceTest {
 
     @Test
     void removeMember_whenOwner_removesMember() {
-        bobProject.getMembers().add(carol);
+        bobProject.getMembers().add(new ProjectMember(bobProject, carol, false));
         when(projectRepository.findById(10)).thenReturn(Optional.of(bobProject));
 
         ProjectResponse result = projectService.removeMember(10, carol.getEmail(), bob);
 
-        assertThat(result.memberEmails()).isEmpty();
+        assertThat(result.members()).isEmpty();
     }
 
     @Test
@@ -168,5 +169,38 @@ class ProjectServiceTest {
 
         assertThrows(AccessDeniedException.class, () -> projectService.delete(10, carol));
         verify(projectRepository, never()).delete(any());
+    }
+
+    @Test
+    void updateMemberPermission_whenOwner_grantsRight() {
+        bobProject.getMembers().add(new ProjectMember(bobProject, carol, false));
+        when(projectRepository.findById(10)).thenReturn(Optional.of(bobProject));
+
+        ProjectResponse result = projectService.updateMemberPermission(10, "carol@test.com", true, bob);
+
+        assertThat(result.members()).extracting("canManageTasks").containsExactly(true);
+    }
+
+    @Test
+    void updateMemberPermission_whenNotOwner_throwsAccessDenied() {
+        bobProject.getMembers().add(new ProjectMember(bobProject, carol, false));
+        when(projectRepository.findById(10)).thenReturn(Optional.of(bobProject));
+
+        assertThrows(AccessDeniedException.class,
+                () -> projectService.updateMemberPermission(10, "carol@test.com", true, carol));
+    }
+
+    @Test
+    void checkCanManageTasks_whenMemberWithoutPermission_throwsAccessDenied() {
+        bobProject.getMembers().add(new ProjectMember(bobProject, carol, false));
+
+        assertThrows(AccessDeniedException.class, () -> projectService.checkCanManageTasks(bobProject, carol));
+    }
+
+    @Test
+    void checkCanManageTasks_whenMemberWithPermission_succeeds() {
+        bobProject.getMembers().add(new ProjectMember(bobProject, carol, true));
+
+        projectService.checkCanManageTasks(bobProject, carol);
     }
 }

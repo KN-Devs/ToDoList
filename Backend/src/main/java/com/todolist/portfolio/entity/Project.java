@@ -3,9 +3,9 @@ package com.todolist.portfolio.entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 @Entity
 @Table(name = "project")
@@ -32,13 +32,8 @@ public class Project {
     @JoinColumn(name = "owner_id")
     private User owner;
 
-    @ManyToMany
-    @JoinTable(
-            name = "project_members",
-            joinColumns = @JoinColumn(name = "project_id"),
-            inverseJoinColumns = @JoinColumn(name = "user_id")
-    )
-    private Set<User> members = new HashSet<>();
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProjectMember> members = new ArrayList<>();
 
     public Project() {
     }
@@ -100,11 +95,11 @@ public class Project {
         this.owner = owner;
     }
 
-    public Set<User> getMembers() {
+    public List<ProjectMember> getMembers() {
         return members;
     }
 
-    public void setMembers(Set<User> members) {
+    public void setMembers(List<ProjectMember> members) {
         this.members = members;
     }
 

@@ -12,6 +12,10 @@ export class ProjectService {
     return this.http.get<Project[]>(`${API_BASE_URL}/projects`);
   }
 
+  getById(id: number): Observable<Project> {
+    return this.http.get<Project>(`${API_BASE_URL}/projects/${id}`);
+  }
+
   create(request: ProjectRequest): Observable<Project> {
     return this.http.post<Project>(`${API_BASE_URL}/projects`, request);
   }
@@ -31,6 +35,13 @@ export class ProjectService {
   removeMember(id: number, email: string): Observable<Project> {
     return this.http.delete<Project>(
       `${API_BASE_URL}/projects/${id}/members/${encodeURIComponent(email)}`
+    );
+  }
+
+  updateMemberPermission(id: number, email: string, canManageTasks: boolean): Observable<Project> {
+    return this.http.patch<Project>(
+      `${API_BASE_URL}/projects/${id}/members/${encodeURIComponent(email)}`,
+      { canManageTasks }
     );
   }
 }
