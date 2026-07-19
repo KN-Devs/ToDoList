@@ -7,6 +7,7 @@ import com.todolist.portfolio.entity.Task;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.repository.TaskRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -47,12 +48,22 @@ public class TaskService {
 
     public TaskResponse update(Integer id, TaskRequest request, User currentUser) {
         Task task = findTaskOrThrow(id);
-        projectService.checkCanManageTasks(task.getProject(), currentUser);
+        Project project = task.getProject();
 
-        task.setNom(request.getNom());
-        task.setDescription(request.getDescription());
+        if (projectService.hasManageRights(project, currentUser)) {
+            task.setNom(request.getNom());
+            task.setDescription(request.getDescription());
+        } else {
+            projectService.checkCanView(project, currentUser);
+
+            boolean onlyStatusChanges = task.getNom().equals(request.getNom())
+                    && task.getDescription().equals(request.getDescription());
+            if (!onlyStatusChanges) {
+                throw new AccessDeniedException("Vous pouvez uniquement changer le statut de cette tâche");
+            }
+        }
+
         task.setStatus(request.getStatus());
-
         taskRepository.save(task);
         return toResponse(task);
     }

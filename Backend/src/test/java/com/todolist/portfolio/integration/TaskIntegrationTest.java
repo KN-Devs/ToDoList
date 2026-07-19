@@ -151,6 +151,36 @@ class TaskIntegrationTest {
     }
 
     @Test
+    void memberWithoutPermission_canChangeTaskStatusButNotRenameIt() {
+        String ownerToken = registerAndGetToken("integration7-owner@test.com");
+        String memberToken = registerAndGetToken("integration7-member@test.com");
+        Integer projectId = createProject(ownerToken);
+
+        HttpEntity<AddMemberRequest> addMemberEntity =
+                new HttpEntity<>(new AddMemberRequest("integration7-member@test.com"), authHeaders(ownerToken));
+        restTemplate.exchange("/api/projects/" + projectId + "/members", HttpMethod.POST, addMemberEntity, ProjectResponse.class);
+
+        TaskRequest taskRequest = new TaskRequest("Tache", "description", TaskStatus.TODO);
+        HttpEntity<TaskRequest> createEntity = new HttpEntity<>(taskRequest, authHeaders(ownerToken));
+        ResponseEntity<TaskResponse> createResponse =
+                restTemplate.postForEntity("/api/projects/" + projectId + "/tasks", createEntity, TaskResponse.class);
+        Integer taskId = createResponse.getBody().id();
+
+        TaskRequest statusOnlyChange = new TaskRequest("Tache", "description", TaskStatus.DONE);
+        HttpEntity<TaskRequest> statusEntity = new HttpEntity<>(statusOnlyChange, authHeaders(memberToken));
+        ResponseEntity<TaskResponse> statusResponse =
+                restTemplate.exchange("/api/tasks/" + taskId, HttpMethod.PUT, statusEntity, TaskResponse.class);
+        assertThat(statusResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(statusResponse.getBody().status()).isEqualTo(TaskStatus.DONE);
+
+        TaskRequest renameAttempt = new TaskRequest("Renommee", "description", TaskStatus.DONE);
+        HttpEntity<TaskRequest> renameEntity = new HttpEntity<>(renameAttempt, authHeaders(memberToken));
+        ResponseEntity<String> renameResponse =
+                restTemplate.exchange("/api/tasks/" + taskId, HttpMethod.PUT, renameEntity, String.class);
+        assertThat(renameResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
     void memberGrantedPermission_canCreateTask() {
         String ownerToken = registerAndGetToken("integration6-owner@test.com");
         String memberToken = registerAndGetToken("integration6-member@test.com");
