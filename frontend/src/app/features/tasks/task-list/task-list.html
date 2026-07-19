@@ -57,8 +57,31 @@
 } @else if (tasks().length === 0) {
   <p class="empty-state">Aucune tâche pour le moment.</p>
 } @else {
+  <div class="task-filters">
+    <input
+      type="search"
+      placeholder="Rechercher une tâche..."
+      [ngModel]="searchQuery()"
+      (ngModelChange)="searchQuery.set($event)"
+      name="search"
+    />
+    <select
+      [ngModel]="statusFilter()"
+      (ngModelChange)="statusFilter.set($event)"
+      name="status-filter"
+    >
+      <option value="ALL">Tous les statuts</option>
+      @for (status of statuses; track status) {
+        <option [value]="status">{{ statusLabel(status) }}</option>
+      }
+    </select>
+  </div>
+
+  @if (!hasVisibleTasks()) {
+    <p class="empty-state">Aucune tâche ne correspond à ta recherche.</p>
+  } @else {
   <div class="kanban-board">
-    @for (status of statuses; track status) {
+    @for (status of visibleStatuses(); track status) {
       <div class="kanban-column">
         <div class="kanban-column-header">
           <span class="status-badge status-{{ status }}">{{ statusLabel(status) }}</span>
@@ -159,6 +182,7 @@
       </div>
     }
   </div>
+  }
 }
 
 @if (selectedTask(); as task) {
