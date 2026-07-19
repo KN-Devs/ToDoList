@@ -4,6 +4,7 @@ import com.todolist.portfolio.dto.TaskRequest;
 import com.todolist.portfolio.dto.TaskResponse;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.service.TaskService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
+@Tag(name = "Tâches", description = "Gestion des tâches d'un projet")
 public class TaskController {
 
     private final TaskService taskService;
