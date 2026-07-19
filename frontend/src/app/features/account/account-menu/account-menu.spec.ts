@@ -138,4 +138,125 @@ describe('AccountMenu', () => {
     expect(authService.logout).toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith(['/login']);
   });
+
+  describe('rendered template', () => {
+    function setInputValue(el: HTMLInputElement, value: string) {
+      el.value = value;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    it('renders the avatar with the user initials and no panel by default', () => {
+      const fixture = TestBed.createComponent(AccountMenu);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      expect(root.querySelector('.avatar-button')?.textContent?.trim()).toBe('MD');
+      expect(root.querySelector('.account-menu-panel')).toBeNull();
+    });
+
+    it('clicking the avatar opens the panel with the user info', () => {
+      const fixture = TestBed.createComponent(AccountMenu);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      root.querySelector<HTMLButtonElement>('.avatar-button')!.click();
+      fixture.detectChanges();
+
+      const panel = root.querySelector('.account-menu-panel');
+      expect(panel).not.toBeNull();
+      expect(panel!.querySelector('strong')?.textContent).toBe('Marie Dupont');
+      expect(panel!.querySelector('.account-menu-email')?.textContent).toBe('marie@example.com');
+      expect(panel!.querySelector('.role-badge')).toBeNull();
+    });
+
+    it('shows the admin badge when the user is an admin', () => {
+      authService.isAdmin.mockReturnValue(true);
+      const fixture = TestBed.createComponent(AccountMenu);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      root.querySelector<HTMLButtonElement>('.avatar-button')!.click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('.role-badge')?.textContent?.trim()).toBe('Admin');
+    });
+
+    it('clicking the backdrop closes the panel', () => {
+      const fixture = TestBed.createComponent(AccountMenu);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      root.querySelector<HTMLButtonElement>('.avatar-button')!.click();
+      fixture.detectChanges();
+      root.querySelector<HTMLElement>('.account-menu-backdrop')!.click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('.account-menu-panel')).toBeNull();
+    });
+
+    it('switching to edit mode renders a form prefilled with the current user', async () => {
+      const fixture = TestBed.createComponent(AccountMenu);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      root.querySelector<HTMLButtonElement>('.avatar-button')!.click();
+      fixture.detectChanges();
+      const buttons = Array.from(root.querySelectorAll('button'));
+      buttons.find((b) => b.textContent?.includes('Modifier mes informations'))!.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const nomInput = root.querySelector<HTMLInputElement>('input[name="nom"]');
+      expect(nomInput?.value).toBe('Dupont');
+      expect(root.querySelector('input[name="prenom"]')).not.toBeNull();
+      expect(root.querySelector('input[name="email"]')).not.toBeNull();
+    });
+
+    it('submitting the edit form calls updateProfile with the edited values', async () => {
+      authService.updateProfile.mockReturnValue(of(USER));
+      const fixture = TestBed.createComponent(AccountMenu);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      root.querySelector<HTMLButtonElement>('.avatar-button')!.click();
+      fixture.detectChanges();
+      Array.from(root.querySelectorAll('button'))
+        .find((b) => b.textContent?.includes('Modifier mes informations'))!
+        .click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      setInputValue(root.querySelector('input[name="nom"]')!, 'Nouveau nom');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      root.querySelector<HTMLFormElement>('form')!.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true })
+      );
+      fixture.detectChanges();
+
+      expect(authService.updateProfile).toHaveBeenCalledWith({
+        nom: 'Nouveau nom',
+        prenom: USER.prenom,
+        email: USER.email,
+      });
+    });
+
+    it('clicking "Se déconnecter" in the panel triggers logout', () => {
+      const fixture = TestBed.createComponent(AccountMenu);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      root.querySelector<HTMLButtonElement>('.avatar-button')!.click();
+      fixture.detectChanges();
+      Array.from(root.querySelectorAll('button'))
+        .find((b) => b.textContent?.includes('Se déconnecter'))!
+        .click();
+
+      expect(authService.logout).toHaveBeenCalled();
+      expect(navigate).toHaveBeenCalledWith(['/login']);
+    });
+  });
 });
