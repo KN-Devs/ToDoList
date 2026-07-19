@@ -10,6 +10,8 @@ import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.repository.UserRepository;
 import com.todolist.portfolio.service.JwtService;
 import com.todolist.portfolio.service.LoginAttemptService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +35,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Authentification", description = "Inscription, connexion et gestion du profil")
 public class AuthController {
 
     private final UserRepository userRepository;
@@ -51,6 +54,7 @@ public class AuthController {
         this.loginAttemptService = loginAttemptService;
     }
 
+    @SecurityRequirements
     @PostMapping("/register")
     public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
         String email = request.getEmail().toLowerCase();
@@ -75,6 +79,7 @@ public class AuthController {
         return new AuthResponse(token);
     }
 
+    @SecurityRequirements
     @PostMapping("/login")
     public AuthResponse login(@RequestBody LoginRequest request) {
         String email = request.getEmail().toLowerCase();

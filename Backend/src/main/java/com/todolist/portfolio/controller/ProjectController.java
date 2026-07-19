@@ -6,6 +6,7 @@ import com.todolist.portfolio.dto.ProjectResponse;
 import com.todolist.portfolio.dto.UpdateMemberPermissionRequest;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.service.ProjectService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/projects")
+@Tag(name = "Projets", description = "Gestion des projets et de leurs membres")
 public class ProjectController {
 
     private final ProjectService projectService;
