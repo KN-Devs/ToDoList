@@ -1,27 +1,20 @@
 import { Component, OnInit } from '@angular/core';
-import { Router, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
+import { AccountMenu } from './features/account/account-menu/account-menu';
 import { AuthService } from './core/services/auth.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, AccountMenu],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App implements OnInit {
-  constructor(
-    protected readonly authService: AuthService,
-    private readonly router: Router
-  ) {}
+  constructor(protected readonly authService: AuthService) {}
 
   ngOnInit(): void {
     if (this.authService.isAuthenticated()) {
       this.authService.loadCurrentUser().subscribe();
     }
-  }
-
-  logout(): void {
-    this.authService.logout();
-    this.router.navigate(['/login']);
   }
 }

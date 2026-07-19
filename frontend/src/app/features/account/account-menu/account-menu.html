@@ -1,0 +1,58 @@
+<div class="account-menu">
+  <button
+    type="button"
+    class="avatar-button"
+    (click)="toggleMenu()"
+    aria-label="Menu du compte"
+  >
+    {{ initials() }}
+  </button>
+
+  @if (menuOpen()) {
+    <div class="account-menu-backdrop" (click)="closeMenu()"></div>
+
+    <div class="account-menu-panel" (click)="$event.stopPropagation()">
+      @if (!editing()) {
+        @if (authService.currentUser(); as user) {
+          <div class="account-menu-header">
+            <strong>{{ user.prenom }} {{ user.nom }}</strong>
+            @if (authService.isAdmin()) {
+              <span class="role-badge">Admin</span>
+            }
+            <span class="account-menu-email">{{ user.email }}</span>
+          </div>
+        }
+        <button type="button" class="secondary" (click)="startEditing()">
+          Modifier mes informations
+        </button>
+        <button type="button" class="secondary" (click)="logout()">Se déconnecter</button>
+      } @else {
+        <form (ngSubmit)="saveProfile()">
+          <label>
+            Nom
+            <input type="text" name="nom" [(ngModel)]="nom" required maxlength="40" />
+          </label>
+          <label>
+            Prénom
+            <input type="text" name="prenom" [(ngModel)]="prenom" required maxlength="40" />
+          </label>
+          <label>
+            Email
+            <input type="email" name="email" [(ngModel)]="email" required maxlength="100" />
+          </label>
+
+          @if (errorMessage()) {
+            <p class="error">{{ errorMessage() }}</p>
+          }
+
+          <div class="form-actions">
+            <button type="submit" [disabled]="saving()">
+              {{ saving() ? 'Enregistrement...' : 'Enregistrer' }}
+            </button>
+            <button type="button" class="secondary" (click)="cancelEditing()">Annuler</button>
+          </div>
+        </form>
+      }
+    </div>
+  }
+</div>

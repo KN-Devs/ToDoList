@@ -4,6 +4,7 @@ import com.todolist.portfolio.dto.AdminResetPasswordRequest;
 import com.todolist.portfolio.dto.AuthResponse;
 import com.todolist.portfolio.dto.LoginRequest;
 import com.todolist.portfolio.dto.RegisterRequest;
+import com.todolist.portfolio.dto.UpdateProfileRequest;
 import com.todolist.portfolio.entity.Role;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.repository.UserRepository;
@@ -97,6 +98,24 @@ public class AuthController {
     @GetMapping("/me")
     public User me(Authentication authentication) {
         return (User) authentication.getPrincipal();
+    }
+
+    @PutMapping("/me")
+    public AuthResponse updateProfile(@Valid @RequestBody UpdateProfileRequest request, Authentication authentication) {
+        User currentUser = (User) authentication.getPrincipal();
+
+        boolean emailChanged = !request.getEmail().equalsIgnoreCase(currentUser.getEmail());
+        if (emailChanged && userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cet email est déjà utilisé");
+        }
+
+        currentUser.setNom(request.getNom());
+        currentUser.setPrenom(request.getPrenom());
+        currentUser.setEmail(request.getEmail());
+        userRepository.save(currentUser);
+
+        String token = jwtService.generateToken(currentUser);
+        return new AuthResponse(token);
     }
 
     @PutMapping("/users/{id}/reset-password")
