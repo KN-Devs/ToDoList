@@ -1,11 +1,11 @@
 import { Component, OnInit } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AccountMenu } from './features/account/account-menu/account-menu';
 import { AuthService } from './core/services/auth.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, AccountMenu],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, AccountMenu],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
