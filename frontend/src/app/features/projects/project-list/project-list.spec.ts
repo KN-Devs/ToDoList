@@ -217,4 +217,146 @@ describe('ProjectList', () => {
 
     expect(component.selectedProject()).toBeNull();
   });
+
+  describe('rendered template', () => {
+    function setValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+      el.value = value;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function clickTab(root: HTMLElement, label: string) {
+      Array.from(root.querySelectorAll<HTMLButtonElement>('[role="tab"]'))
+        .find((b) => b.textContent?.trim() === label)!
+        .click();
+    }
+
+    it('renders one card per project with its name and description', () => {
+      const fixture = TestBed.createComponent(ProjectList);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      const cards = root.querySelectorAll('.project-card');
+      expect(cards).toHaveLength(1);
+      expect(cards[0].querySelector('h3')?.textContent).toBe(PROJECT.nom);
+      expect(cards[0].textContent).toContain(PROJECT.description);
+    });
+
+    it('switching to the create tab shows the form, and submitting it calls create()', async () => {
+      projectService.create.mockReturnValue(
+        of({ ...PROJECT, id: 2, nom: 'Nouveau projet' })
+      );
+      const fixture = TestBed.createComponent(ProjectList);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      clickTab(root, 'Créer un projet');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const form = root.querySelector<HTMLFormElement>('form.project-form');
+      expect(form).not.toBeNull();
+
+      setValue(root.querySelector('input[name="nom"]')!, 'Nouveau projet');
+      setValue(root.querySelector('textarea[name="description"]')!, 'Une description');
+      setValue(root.querySelector('input[name="startDate"]')!, '2026-01-01');
+      setValue(root.querySelector('input[name="endDate"]')!, '2026-12-31');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+      expect(projectService.create).toHaveBeenCalledWith({
+        nom: 'Nouveau projet',
+        description: 'Une description',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+      });
+    });
+
+    it('clicking a card opens the detail modal with the project info', () => {
+      const fixture = TestBed.createComponent(ProjectList);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      root.querySelector<HTMLElement>('.project-card')!.click();
+      fixture.detectChanges();
+
+      const modal = root.querySelector('.modal-card');
+      expect(modal).not.toBeNull();
+      expect(modal!.querySelector('h2')?.textContent).toBe(PROJECT.nom);
+      expect(modal!.textContent).toContain(PROJECT.ownerEmail);
+    });
+
+    it('closing the modal via the backdrop hides it', () => {
+      const fixture = TestBed.createComponent(ProjectList);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      root.querySelector<HTMLElement>('.project-card')!.click();
+      fixture.detectChanges();
+      root.querySelector<HTMLElement>('.modal-backdrop')!.click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('.modal-card')).toBeNull();
+    });
+
+    it('submitting the add-member form calls addMember with the typed email', async () => {
+      projectService.addMember.mockReturnValue(of({ ...PROJECT, memberEmails: ['carol@example.com'] }));
+      const fixture = TestBed.createComponent(ProjectList);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      root.querySelector<HTMLElement>('.project-card')!.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      setValue(root.querySelector('input[name="newMemberEmail"]')!, 'carol@example.com');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      root
+        .querySelector<HTMLFormElement>('form.add-member-form')!
+        .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+      expect(projectService.addMember).toHaveBeenCalledWith(PROJECT.id, 'carol@example.com');
+    });
+
+    it('shows a "Retirer" button per member only for the owner', () => {
+      const withMember: Project = { ...PROJECT, memberEmails: ['carol@example.com'] };
+      projectService.getAll.mockReturnValue(of([withMember]));
+      const fixture = TestBed.createComponent(ProjectList);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      root.querySelector<HTMLElement>('.project-card')!.click();
+      fixture.detectChanges();
+
+      const memberItem = root.querySelector('.member-list li');
+      expect(memberItem?.textContent).toContain('carol@example.com');
+      expect(
+        Array.from(memberItem!.querySelectorAll('button')).some((b) =>
+          b.textContent?.includes('Retirer')
+        )
+      ).toBe(true);
+    });
+
+    it('clicking "Modifier" in the modal switches to the edit form', async () => {
+      const fixture = TestBed.createComponent(ProjectList);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      root.querySelector<HTMLElement>('.project-card')!.click();
+      fixture.detectChanges();
+      Array.from(root.querySelectorAll('button'))
+        .find((b) => b.textContent?.trim() === 'Modifier')!
+        .click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const nomInput = root.querySelector<HTMLInputElement>('input[name="edit-nom"]');
+      expect(nomInput?.value).toBe(PROJECT.nom);
+    });
+  });
 });
