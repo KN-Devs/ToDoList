@@ -94,6 +94,23 @@ class ProfileIntegrationTest {
     }
 
     @Test
+    void updateProfile_normalizesEmailToLowercase() {
+        String token = registerAndGetToken("profile5@test.com");
+
+        UpdateProfileRequest update = new UpdateProfileRequest("Nom", "Prenom", "Profile5-New@Test.COM");
+        HttpEntity<UpdateProfileRequest> updateEntity = new HttpEntity<>(update, authHeaders(token));
+        ResponseEntity<AuthResponse> updateResponse =
+                restTemplate.exchange("/api/auth/me", HttpMethod.PUT, updateEntity, AuthResponse.class);
+
+        assertThat(updateResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        HttpEntity<Void> meEntity = new HttpEntity<>(authHeaders(updateResponse.getBody().token()));
+        ResponseEntity<User> meResponse = restTemplate.exchange("/api/auth/me", HttpMethod.GET, meEntity, User.class);
+
+        assertThat(meResponse.getBody().getEmail()).isEqualTo("profile5-new@test.com");
+    }
+
+    @Test
     void updateProfile_keepingSameEmail_succeeds() {
         String token = registerAndGetToken("profile4@test.com");
 

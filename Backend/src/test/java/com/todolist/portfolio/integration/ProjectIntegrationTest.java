@@ -98,6 +98,25 @@ class ProjectIntegrationTest {
     }
 
     @Test
+    void addMember_withDifferentCaseEmail_findsExistingUser() {
+        String ownerToken = registerAndGetToken("project2b-owner@test.com");
+        registerAndGetToken("project2b-member@test.com");
+
+        HttpEntity<ProjectRequest> createEntity = new HttpEntity<>(sampleProject(), authHeaders(ownerToken));
+        ResponseEntity<ProjectResponse> createResponse =
+                restTemplate.postForEntity("/api/projects", createEntity, ProjectResponse.class);
+        Integer projectId = createResponse.getBody().id();
+
+        HttpEntity<AddMemberRequest> addMemberEntity =
+                new HttpEntity<>(new AddMemberRequest("Project2b-Member@Test.com"), authHeaders(ownerToken));
+        ResponseEntity<ProjectResponse> addMemberResponse = restTemplate.exchange(
+                "/api/projects/" + projectId + "/members", HttpMethod.POST, addMemberEntity, ProjectResponse.class);
+
+        assertThat(addMemberResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(addMemberResponse.getBody().members()).extracting("email").containsExactly("project2b-member@test.com");
+    }
+
+    @Test
     void addMember_whenNotOwner_returns403() {
         String ownerToken = registerAndGetToken("project3-owner@test.com");
         String strangerToken = registerAndGetToken("project3-stranger@test.com");

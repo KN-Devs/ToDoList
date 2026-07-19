@@ -76,6 +76,38 @@ class TaskIntegrationTest {
     }
 
     @Test
+    void register_withDuplicateEmail_returns409NotStackTrace() {
+        registerAndGetToken("integration-dup@test.com");
+
+        RegisterRequest duplicate = new RegisterRequest("Autre", "Nom", "integration-dup@test.com", "Password123!");
+        ResponseEntity<String> response = restTemplate.postForEntity("/api/auth/register", duplicate, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody()).doesNotContain("Exception", "at com.todolist", "SQLState");
+    }
+
+    @Test
+    void register_withDuplicateEmailDifferentCase_returns409() {
+        registerAndGetToken("integration-dupcase@test.com");
+
+        RegisterRequest duplicate = new RegisterRequest("Autre", "Nom", "Integration-DupCase@Test.com", "Password123!");
+        ResponseEntity<String> response = restTemplate.postForEntity("/api/auth/register", duplicate, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void login_withDifferentCaseEmail_succeeds() {
+        registerAndGetToken("integration-case@test.com");
+
+        LoginRequest loginRequest = new LoginRequest("Integration-Case@Test.COM", "Password123!");
+        ResponseEntity<AuthResponse> response = restTemplate.postForEntity("/api/auth/login", loginRequest, AuthResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().token()).isNotBlank();
+    }
+
+    @Test
     void login_withWrongPassword_returns401() {
         registerAndGetToken("integration2@test.com");
 
