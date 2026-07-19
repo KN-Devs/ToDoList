@@ -12,6 +12,7 @@ import {
 } from '../../../core/models/task.model';
 
 export type TasksTab = 'board' | 'create';
+export type StatusFilter = TaskStatus | 'ALL';
 
 @Component({
   selector: 'app-task-list',
@@ -31,13 +32,35 @@ export class TaskList implements OnInit {
 
   readonly activeTab = signal<TasksTab>('board');
 
+  readonly searchQuery = signal('');
+  readonly statusFilter = signal<StatusFilter>('ALL');
+
+  readonly visibleStatuses = computed(() => {
+    const filter = this.statusFilter();
+    return filter === 'ALL' ? this.statuses : [filter];
+  });
+
   readonly tasksByStatus = computed(() => {
+    const query = this.searchQuery().trim().toLowerCase();
     const grouped: Record<TaskStatus, Task[]> = { TODO: [], IN_PROGRESS: [], DONE: [] };
+
     for (const task of this.tasks()) {
-      grouped[task.status].push(task);
+      const matchesQuery =
+        !query ||
+        task.nom.toLowerCase().includes(query) ||
+        task.description.toLowerCase().includes(query);
+
+      if (matchesQuery) {
+        grouped[task.status].push(task);
+      }
     }
+
     return grouped;
   });
+
+  readonly hasVisibleTasks = computed(() =>
+    this.visibleStatuses().some((status) => this.tasksByStatus()[status].length > 0)
+  );
 
   newTask: TaskRequest = { nom: '', description: '', status: 'TODO' };
   readonly creating = signal(false);

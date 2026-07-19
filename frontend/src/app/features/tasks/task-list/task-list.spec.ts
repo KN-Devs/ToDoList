@@ -163,6 +163,54 @@ describe('TaskList', () => {
     expect(grouped.DONE).toEqual([]);
   });
 
+  describe('search and status filter', () => {
+    const other: Task = {
+      id: 2,
+      nom: 'Corriger un bug',
+      description: 'Le formulaire plante sur Firefox',
+      status: 'DONE',
+      email: 'marie@example.com',
+    };
+
+    beforeEach(() => {
+      taskService.getAll.mockReturnValue(of([TASK, other]));
+      component.ngOnInit();
+    });
+
+    it('visibleStatuses() returns every status by default', () => {
+      expect(component.visibleStatuses()).toEqual(['TODO', 'IN_PROGRESS', 'DONE']);
+    });
+
+    it('visibleStatuses() narrows to a single status when filtered', () => {
+      component.statusFilter.set('DONE');
+
+      expect(component.visibleStatuses()).toEqual(['DONE']);
+    });
+
+    it('tasksByStatus() filters by a search query matching the name or description', () => {
+      component.searchQuery.set('firefox');
+
+      const grouped = component.tasksByStatus();
+
+      expect(grouped.TODO).toEqual([]);
+      expect(grouped.DONE).toEqual([other]);
+    });
+
+    it('hasVisibleTasks() is false when the search and filter combination matches nothing', () => {
+      component.statusFilter.set('TODO');
+      component.searchQuery.set('firefox');
+
+      expect(component.hasVisibleTasks()).toBe(false);
+    });
+
+    it('hasVisibleTasks() is true when at least one visible column has a match', () => {
+      component.statusFilter.set('DONE');
+      component.searchQuery.set('firefox');
+
+      expect(component.hasVisibleTasks()).toBe(true);
+    });
+  });
+
   describe('changeStatus', () => {
     it('does nothing when the status is unchanged', () => {
       component.changeStatus(TASK, TASK.status);
