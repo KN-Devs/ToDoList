@@ -87,7 +87,9 @@ jobs:
       - name: Start backend and wait for readiness
         working-directory: Backend
         env:
-          JWT_SECRET: ci-only-throwaway-secret-never-used-outside-this-run
+          # Secret jetable, valide uniquement le temps de ce run CI, jamais utilisé
+          # ailleurs. Doit être du base64 valide (JwtService le décode tel quel).
+          JWT_SECRET: /AydAQ3E9KN2RwyzhWTs5ZuHQJoN0gC3wVzhEcNlrc/6fDdbroys+miOEniqkTh/6U6WeiP7f7IuSZzthlz+3g==
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/todolist
           SPRING_DATASOURCE_USERNAME: todolist
           SPRING_DATASOURCE_PASSWORD: todolist

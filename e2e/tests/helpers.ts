@@ -18,30 +18,13 @@ export function uniqueUser(prefix: string): TestUser {
 }
 
 export async function register(page: Page, user: TestUser): Promise<void> {
-  page.on('console', (msg) => {
-    if (msg.type() === 'error') console.log(`[browser console] ${msg.text()}`);
-  });
-  page.on('pageerror', (err) => console.log(`[browser pageerror] ${err.message}`));
-  page.on('requestfailed', (req) =>
-    console.log(`[network failed] ${req.method()} ${req.url()} - ${req.failure()?.errorText}`)
-  );
-  page.on('response', (res) => {
-    if (res.url().includes('/api/auth/register')) {
-      console.log(`[register response] ${res.status()} ${res.url()}`);
-      res
-        .text()
-        .then((body) => console.log(`[register body] ${body}`))
-        .catch(() => undefined);
-    }
-  });
-
   await page.goto('/register');
   await page.fill('input[name="nom"]', user.nom);
   await page.fill('input[name="prenom"]', user.prenom);
   await page.fill('input[name="email"]', user.email);
   await page.fill('input[name="password"]', user.password);
   await page.click('button[type="submit"]');
-  await expect(page).toHaveURL(/\/projects/, { timeout: 15000 });
+  await expect(page).toHaveURL(/\/projects/);
 }
 
 export async function login(page: Page, user: Pick<TestUser, 'email' | 'password'>): Promise<void> {
