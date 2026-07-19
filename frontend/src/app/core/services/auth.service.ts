@@ -2,7 +2,13 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 import { Observable, switchMap, tap } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
-import { AuthResponse, LoginRequest, RegisterRequest, User } from '../models/auth.model';
+import {
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+  UpdateProfileRequest,
+  User,
+} from '../models/auth.model';
 
 const TOKEN_KEY = 'todolist.token';
 
@@ -27,6 +33,13 @@ export class AuthService {
 
   login(request: LoginRequest): Observable<User> {
     return this.http.post<AuthResponse>(`${API_BASE_URL}/auth/login`, request).pipe(
+      tap((response) => this.setToken(response.token)),
+      switchMap(() => this.loadCurrentUser())
+    );
+  }
+
+  updateProfile(request: UpdateProfileRequest): Observable<User> {
+    return this.http.put<AuthResponse>(`${API_BASE_URL}/auth/me`, request).pipe(
       tap((response) => this.setToken(response.token)),
       switchMap(() => this.loadCurrentUser())
     );
