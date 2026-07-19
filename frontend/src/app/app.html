@@ -1,6 +1,12 @@
 @if (authService.isAuthenticated()) {
   <header class="app-header">
-    <span class="brand">ToDoList</span>
+    <div class="app-header-left">
+      <span class="brand">ToDoList</span>
+      <nav class="app-nav">
+        <a routerLink="/tasks" routerLinkActive="active">Tâches</a>
+        <a routerLink="/projects" routerLinkActive="active">Projets</a>
+      </nav>
+    </div>
     <app-account-menu />
   </header>
 }
