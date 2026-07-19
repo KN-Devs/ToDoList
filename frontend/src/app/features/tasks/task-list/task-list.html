@@ -74,7 +74,7 @@
           (cdkDropListDropped)="onDrop($event, status)"
         >
           @for (task of tasksByStatus()[status]; track task.id) {
-            <div class="task-card" cdkDrag [cdkDragData]="task">
+            <div class="task-card" cdkDrag [cdkDragData]="task" (click)="openDetail(task)">
               @if (editingId() === task.id) {
                 <label>
                   Nom
@@ -104,8 +104,16 @@
                   </select>
                 </label>
                 <div class="task-card-actions">
-                  <button type="button" (click)="saveEdit(task)">Enregistrer</button>
-                  <button type="button" class="secondary" (click)="cancelEdit()">Annuler</button>
+                  <button type="button" (click)="saveEdit(task); $event.stopPropagation()">
+                    Enregistrer
+                  </button>
+                  <button
+                    type="button"
+                    class="secondary"
+                    (click)="cancelEdit(); $event.stopPropagation()"
+                  >
+                    Annuler
+                  </button>
                 </div>
               } @else {
                 <div class="task-card-top">
@@ -129,8 +137,20 @@
                   </select>
                 </div>
                 <div class="task-card-actions">
-                  <button type="button" class="secondary" (click)="startEdit(task)">Modifier</button>
-                  <button type="button" class="danger" (click)="deleteTask(task)">Supprimer</button>
+                  <button
+                    type="button"
+                    class="secondary"
+                    (click)="startEdit(task); $event.stopPropagation()"
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    type="button"
+                    class="danger"
+                    (click)="deleteTask(task); $event.stopPropagation()"
+                  >
+                    Supprimer
+                  </button>
                 </div>
               }
             </div>
@@ -138,5 +158,36 @@
         </div>
       </div>
     }
+  </div>
+}
+
+@if (selectedTask(); as task) {
+  <div class="modal-backdrop" (click)="closeDetail()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ task.nom }}</h2>
+        <button
+          type="button"
+          class="secondary modal-close"
+          (click)="closeDetail()"
+          aria-label="Fermer"
+        >
+          ✕
+        </button>
+      </div>
+
+      <span class="status-badge status-{{ task.status }}">{{ statusLabel(task.status) }}</span>
+
+      <p class="modal-description">{{ task.description }}</p>
+
+      @if (authService.isAdmin()) {
+        <p class="task-owner">{{ task.email }}</p>
+      }
+
+      <div class="task-card-actions">
+        <button type="button" class="secondary" (click)="editFromDetail(task)">Modifier</button>
+        <button type="button" class="danger" (click)="deleteFromDetail(task)">Supprimer</button>
+      </div>
+    </div>
   </div>
 }
