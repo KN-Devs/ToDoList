@@ -21,6 +21,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/todolist
       SPRING_DATASOURCE_USERNAME: todolist
       SPRING_DATASOURCE_PASSWORD: todolist
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (e.g. in a local .env file, never committed)}
     ports:
       - "8080:8080"
     depends_on:

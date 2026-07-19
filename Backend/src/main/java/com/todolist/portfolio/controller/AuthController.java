@@ -53,11 +53,17 @@ public class AuthController {
 
     @PostMapping("/register")
     public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
+        String email = request.getEmail().toLowerCase();
+
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cet email est déjà utilisé");
+        }
+
         User user = new User(
                 null,
                 request.getNom(),
                 request.getPrenom(),
-                request.getEmail(),
+                email,
                 passwordEncoder.encode(request.getPassword()),
                 Role.USER
         );
@@ -71,7 +77,8 @@ public class AuthController {
 
     @PostMapping("/login")
     public AuthResponse login(@RequestBody LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+        String email = request.getEmail().toLowerCase();
+        User user = userRepository.findByEmail(email).orElse(null);
 
         if (user != null) {
             loginAttemptService.checkNotLocked(user);
@@ -79,7 +86,7 @@ public class AuthController {
 
         try {
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+                    new UsernamePasswordAuthenticationToken(email, request.getPassword())
             );
 
             User authenticatedUser = (User) authentication.getPrincipal();
@@ -103,15 +110,16 @@ public class AuthController {
     @PutMapping("/me")
     public AuthResponse updateProfile(@Valid @RequestBody UpdateProfileRequest request, Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
+        String email = request.getEmail().toLowerCase();
 
-        boolean emailChanged = !request.getEmail().equalsIgnoreCase(currentUser.getEmail());
-        if (emailChanged && userRepository.findByEmail(request.getEmail()).isPresent()) {
+        boolean emailChanged = !email.equals(currentUser.getEmail());
+        if (emailChanged && userRepository.findByEmail(email).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cet email est déjà utilisé");
         }
 
         currentUser.setNom(request.getNom());
         currentUser.setPrenom(request.getPrenom());
-        currentUser.setEmail(request.getEmail());
+        currentUser.setEmail(email);
         userRepository.save(currentUser);
 
         String token = jwtService.generateToken(currentUser);

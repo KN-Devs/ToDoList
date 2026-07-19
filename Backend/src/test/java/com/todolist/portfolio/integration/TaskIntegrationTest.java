@@ -30,7 +30,8 @@ import java.time.LocalDate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "jwt.secret=c9LFPMTyngIGNVVOyCJsFDR9NBigIi672n5yVkrCJ5WSTUsASKUC3TgTfhornn4fMcMKDfv7wtfdZ1y5SKaHjw==")
 @AutoConfigureTestRestTemplate
 class TaskIntegrationTest {
 
@@ -72,6 +73,38 @@ class TaskIntegrationTest {
 
         assertThat(loginResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(loginResponse.getBody().token()).isNotBlank();
+    }
+
+    @Test
+    void register_withDuplicateEmail_returns409NotStackTrace() {
+        registerAndGetToken("integration-dup@test.com");
+
+        RegisterRequest duplicate = new RegisterRequest("Autre", "Nom", "integration-dup@test.com", "Password123!");
+        ResponseEntity<String> response = restTemplate.postForEntity("/api/auth/register", duplicate, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody()).doesNotContain("Exception", "at com.todolist", "SQLState");
+    }
+
+    @Test
+    void register_withDuplicateEmailDifferentCase_returns409() {
+        registerAndGetToken("integration-dupcase@test.com");
+
+        RegisterRequest duplicate = new RegisterRequest("Autre", "Nom", "Integration-DupCase@Test.com", "Password123!");
+        ResponseEntity<String> response = restTemplate.postForEntity("/api/auth/register", duplicate, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void login_withDifferentCaseEmail_succeeds() {
+        registerAndGetToken("integration-case@test.com");
+
+        LoginRequest loginRequest = new LoginRequest("Integration-Case@Test.COM", "Password123!");
+        ResponseEntity<AuthResponse> response = restTemplate.postForEntity("/api/auth/login", loginRequest, AuthResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().token()).isNotBlank();
     }
 
     @Test

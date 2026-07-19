@@ -17,7 +17,7 @@ class JwtServiceTest {
     void setUp() {
         jwtService = new JwtService();
         ReflectionTestUtils.setField(jwtService, "secretKey",
-                "0crYWy0YcfHVHChtz1p93D+oOQFrWDICLAnyaMwdavS70j3oZHv1kZPC3gTa2Ij7+8bzSjWjEzubU4Q/wgsJlQ==");
+                "c9LFPMTyngIGNVVOyCJsFDR9NBigIi672n5yVkrCJ5WSTUsASKUC3TgTfhornn4fMcMKDfv7wtfdZ1y5SKaHjw==");
         ReflectionTestUtils.setField(jwtService, "expirationMs", 3600000L);
 
         bob = new User(1, "Dupont", "Bob", "bob@test.com", "hash", Role.USER);

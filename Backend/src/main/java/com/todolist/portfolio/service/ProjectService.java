@@ -75,7 +75,7 @@ public class ProjectService {
         Project project = findOrThrow(id);
         checkOwner(project, currentUser);
 
-        User newMember = userRepository.findByEmail(email)
+        User newMember = userRepository.findByEmail(email.toLowerCase())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Aucun utilisateur avec cet email"));
 
         if (newMember.getId().equals(project.getOwner().getId())) {
