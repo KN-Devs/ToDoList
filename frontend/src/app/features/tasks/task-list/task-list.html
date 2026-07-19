@@ -95,7 +95,7 @@
           (cdkDropListDropped)="onDrop($event, status)"
         >
           @for (task of tasksByStatus()[status]; track task.id) {
-            <div class="task-card" cdkDrag [cdkDragDisabled]="!canManage" [cdkDragData]="task" (click)="openDetail(task)">
+            <div class="task-card" cdkDrag [cdkDragData]="task" (click)="openDetail(task)">
               @if (editingId() === task.id) {
                 <label>
                   Nom
@@ -149,7 +149,6 @@
                     class="status-badge status-select status-{{ task.status }}"
                     [ngModel]="task.status"
                     (ngModelChange)="changeStatus(task, $event)"
-                    [disabled]="!canManage"
                     name="quick-status-{{ task.id }}"
                     (click)="$event.stopPropagation()"
                   >

@@ -203,4 +203,28 @@ class ProjectServiceTest {
 
         projectService.checkCanManageTasks(bobProject, carol);
     }
+
+    @Test
+    void hasManageRights_whenOwner_isTrue() {
+        assertThat(projectService.hasManageRights(bobProject, bob)).isTrue();
+    }
+
+    @Test
+    void hasManageRights_whenAdmin_isTrue() {
+        assertThat(projectService.hasManageRights(bobProject, alice)).isTrue();
+    }
+
+    @Test
+    void hasManageRights_whenMemberWithoutPermission_isFalse() {
+        bobProject.getMembers().add(new ProjectMember(bobProject, carol, false));
+
+        assertThat(projectService.hasManageRights(bobProject, carol)).isFalse();
+    }
+
+    @Test
+    void hasManageRights_whenMemberWithPermission_isTrue() {
+        bobProject.getMembers().add(new ProjectMember(bobProject, carol, true));
+
+        assertThat(projectService.hasManageRights(bobProject, carol)).isTrue();
+    }
 }

@@ -123,14 +123,49 @@ class TaskServiceTest {
     }
 
     @Test
-    void update_whenAllowed_updatesFields() {
+    void update_whenManageRights_updatesAllFields() {
         when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
+        when(projectService.hasManageRights(bobProject, bob)).thenReturn(true);
         TaskRequest request = new TaskRequest("Modifiee", "nouvelle desc", TaskStatus.DONE);
 
         TaskResponse result = taskService.update(10, request, bob);
 
         assertThat(result.nom()).isEqualTo("Modifiee");
+        assertThat(result.description()).isEqualTo("nouvelle desc");
         assertThat(result.status()).isEqualTo(TaskStatus.DONE);
+    }
+
+    @Test
+    void update_whenViewOnlyMember_canChangeStatusOnly() {
+        when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
+        when(projectService.hasManageRights(bobProject, stranger)).thenReturn(false);
+        TaskRequest request = new TaskRequest(bobTask.getNom(), bobTask.getDescription(), TaskStatus.DONE);
+
+        TaskResponse result = taskService.update(10, request, stranger);
+
+        assertThat(result.status()).isEqualTo(TaskStatus.DONE);
+        verify(projectService).checkCanView(bobProject, stranger);
+    }
+
+    @Test
+    void update_whenViewOnlyMemberTriesToRenameTask_throwsAccessDenied() {
+        when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
+        when(projectService.hasManageRights(bobProject, stranger)).thenReturn(false);
+        TaskRequest request = new TaskRequest("Renommee", bobTask.getDescription(), TaskStatus.DONE);
+
+        assertThrows(AccessDeniedException.class, () -> taskService.update(10, request, stranger));
+        verify(taskRepository, never()).save(any());
+    }
+
+    @Test
+    void update_whenNoProjectAccess_throwsAccessDenied() {
+        when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
+        when(projectService.hasManageRights(bobProject, stranger)).thenReturn(false);
+        doThrow(new AccessDeniedException("no")).when(projectService).checkCanView(bobProject, stranger);
+        TaskRequest request = new TaskRequest(bobTask.getNom(), bobTask.getDescription(), TaskStatus.DONE);
+
+        assertThrows(AccessDeniedException.class, () -> taskService.update(10, request, stranger));
+        verify(taskRepository, never()).save(any());
     }
 
     @Test

@@ -130,13 +130,17 @@ public class ProjectService {
     }
 
     public void checkCanManageTasks(Project project, User user) {
+        if (!hasManageRights(project, user)) {
+            throw new AccessDeniedException("Vous n'avez pas le droit de gérer les tâches de ce projet");
+        }
+    }
+
+    public boolean hasManageRights(Project project, User user) {
         boolean isOwner = project.getOwner().getId().equals(user.getId());
         boolean isAdmin = user.getRole() == Role.ADMIN;
         boolean canManage = findMember(project, user).map(ProjectMember::isCanManageTasks).orElse(false);
 
-        if (!isOwner && !isAdmin && !canManage) {
-            throw new AccessDeniedException("Vous n'avez pas le droit de gérer les tâches de ce projet");
-        }
+        return isOwner || isAdmin || canManage;
     }
 
     private void checkOwner(Project project, User user) {
