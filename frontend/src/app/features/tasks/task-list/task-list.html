@@ -1,7 +1,3 @@
-<div class="task-page-header">
-  <h1>{{ authService.isAdmin() ? 'Toutes les tâches' : 'Mes tâches' }}</h1>
-</div>
-
 <div class="tabs" role="tablist">
   <button
     type="button"
@@ -9,23 +5,25 @@
     [class.active]="activeTab() === 'board'"
     (click)="activeTab.set('board')"
   >
-    Mes tâches
+    Tâches
   </button>
-  <button
-    type="button"
-    role="tab"
-    [class.active]="activeTab() === 'create'"
-    (click)="activeTab.set('create')"
-  >
-    Créer une tâche
-  </button>
+  @if (canManage) {
+    <button
+      type="button"
+      role="tab"
+      [class.active]="activeTab() === 'create'"
+      (click)="activeTab.set('create')"
+    >
+      Créer une tâche
+    </button>
+  }
 </div>
 
 @if (errorMessage()) {
   <p class="error">{{ errorMessage() }}</p>
 }
 
-@if (activeTab() === 'create') {
+@if (activeTab() === 'create' && canManage) {
   <form class="task-form" (ngSubmit)="createTask()">
     <label>
       Nom
@@ -97,7 +95,7 @@
           (cdkDropListDropped)="onDrop($event, status)"
         >
           @for (task of tasksByStatus()[status]; track task.id) {
-            <div class="task-card" cdkDrag [cdkDragData]="task" (click)="openDetail(task)">
+            <div class="task-card" cdkDrag [cdkDragDisabled]="!canManage" [cdkDragData]="task" (click)="openDetail(task)">
               @if (editingId() === task.id) {
                 <label>
                   Nom
@@ -151,6 +149,7 @@
                     class="status-badge status-select status-{{ task.status }}"
                     [ngModel]="task.status"
                     (ngModelChange)="changeStatus(task, $event)"
+                    [disabled]="!canManage"
                     name="quick-status-{{ task.id }}"
                     (click)="$event.stopPropagation()"
                   >
@@ -159,22 +158,24 @@
                     }
                   </select>
                 </div>
-                <div class="task-card-actions">
-                  <button
-                    type="button"
-                    class="secondary"
-                    (click)="startEdit(task); $event.stopPropagation()"
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    type="button"
-                    class="danger"
-                    (click)="deleteTask(task); $event.stopPropagation()"
-                  >
-                    Supprimer
-                  </button>
-                </div>
+                @if (canManage) {
+                  <div class="task-card-actions">
+                    <button
+                      type="button"
+                      class="secondary"
+                      (click)="startEdit(task); $event.stopPropagation()"
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      type="button"
+                      class="danger"
+                      (click)="deleteTask(task); $event.stopPropagation()"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                }
               }
             </div>
           }
@@ -208,10 +209,12 @@
         <p class="task-owner">{{ task.email }}</p>
       }
 
-      <div class="task-card-actions">
-        <button type="button" class="secondary" (click)="editFromDetail(task)">Modifier</button>
-        <button type="button" class="danger" (click)="deleteFromDetail(task)">Supprimer</button>
-      </div>
+      @if (canManage) {
+        <div class="task-card-actions">
+          <button type="button" class="secondary" (click)="editFromDetail(task)">Modifier</button>
+          <button type="button" class="danger" (click)="deleteFromDetail(task)">Supprimer</button>
+        </div>
+      }
     </div>
   </div>
 }

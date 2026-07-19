@@ -1,5 +1,5 @@
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
-import { Component, HostListener, OnInit, computed, signal } from '@angular/core';
+import { Component, HostListener, Input, OnChanges, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { TaskService } from '../../../core/services/task.service';
@@ -21,7 +21,10 @@ export type StatusFilter = TaskStatus | 'ALL';
   templateUrl: './task-list.html',
   styleUrl: './task-list.scss',
 })
-export class TaskList implements OnInit {
+export class TaskList implements OnChanges {
+  @Input({ required: true }) projectId!: number;
+  @Input() canManage = true;
+
   readonly tasks = signal<Task[]>([]);
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
@@ -75,7 +78,7 @@ export class TaskList implements OnInit {
     protected readonly authService: AuthService
   ) {}
 
-  ngOnInit(): void {
+  ngOnChanges(): void {
     this.reload();
   }
 
@@ -83,7 +86,7 @@ export class TaskList implements OnInit {
     this.loading.set(true);
     this.errorMessage.set(null);
 
-    this.taskService.getAll().subscribe({
+    this.taskService.getAllForProject(this.projectId).subscribe({
       next: (tasks) => {
         this.tasks.set(tasks);
         this.loading.set(false);
@@ -102,7 +105,7 @@ export class TaskList implements OnInit {
 
     this.creating.set(true);
 
-    this.taskService.create(this.newTask).subscribe({
+    this.taskService.create(this.projectId, this.newTask).subscribe({
       next: (task) => {
         this.tasks.update((tasks) => [...tasks, task]);
         this.newTask = { nom: '', description: '', status: 'TODO' };

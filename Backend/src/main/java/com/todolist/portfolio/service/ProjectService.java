@@ -1,8 +1,10 @@
 package com.todolist.portfolio.service;
 
+import com.todolist.portfolio.dto.ProjectMemberResponse;
 import com.todolist.portfolio.dto.ProjectRequest;
 import com.todolist.portfolio.dto.ProjectResponse;
 import com.todolist.portfolio.entity.Project;
+import com.todolist.portfolio.entity.ProjectMember;
 import com.todolist.portfolio.entity.Role;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.repository.ProjectRepository;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ProjectService {
@@ -44,7 +47,7 @@ public class ProjectService {
 
     public ProjectResponse getById(Integer id, User currentUser) {
         Project project = findOrThrow(id);
-        checkMembership(project, currentUser);
+        checkCanView(project, currentUser);
         return toResponse(project);
     }
 
@@ -79,7 +82,11 @@ public class ProjectService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le propriétaire est déjà membre du projet");
         }
 
-        project.getMembers().add(newMember);
+        if (findMember(project, newMember).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cette personne est déjà membre du projet");
+        }
+
+        project.getMembers().add(new ProjectMember(project, newMember, false));
         projectRepository.save(project);
         return toResponse(project);
     }
@@ -88,23 +95,47 @@ public class ProjectService {
         Project project = findOrThrow(id);
         checkOwner(project, currentUser);
 
-        project.getMembers().removeIf(member -> member.getEmail().equalsIgnoreCase(email));
+        project.getMembers().removeIf(member -> member.getUser().getEmail().equalsIgnoreCase(email));
         projectRepository.save(project);
         return toResponse(project);
     }
 
-    private Project findOrThrow(Integer id) {
+    public ProjectResponse updateMemberPermission(Integer id, String email, boolean canManageTasks, User currentUser) {
+        Project project = findOrThrow(id);
+        checkOwner(project, currentUser);
+
+        ProjectMember member = project.getMembers().stream()
+                .filter(m -> m.getUser().getEmail().equalsIgnoreCase(email))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ce membre ne fait pas partie du projet"));
+
+        member.setCanManageTasks(canManageTasks);
+        projectRepository.save(project);
+        return toResponse(project);
+    }
+
+    public Project findOrThrow(Integer id) {
         return projectRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Projet introuvable"));
     }
 
-    private void checkMembership(Project project, User user) {
+    public void checkCanView(Project project, User user) {
         boolean isOwner = project.getOwner().getId().equals(user.getId());
-        boolean isMember = project.getMembers().stream().anyMatch(m -> m.getId().equals(user.getId()));
+        boolean isMember = findMember(project, user).isPresent();
         boolean isAdmin = user.getRole() == Role.ADMIN;
 
         if (!isOwner && !isMember && !isAdmin) {
             throw new AccessDeniedException("Vous n'avez pas accès à ce projet");
+        }
+    }
+
+    public void checkCanManageTasks(Project project, User user) {
+        boolean isOwner = project.getOwner().getId().equals(user.getId());
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+        boolean canManage = findMember(project, user).map(ProjectMember::isCanManageTasks).orElse(false);
+
+        if (!isOwner && !isAdmin && !canManage) {
+            throw new AccessDeniedException("Vous n'avez pas le droit de gérer les tâches de ce projet");
         }
     }
 
@@ -115,6 +146,12 @@ public class ProjectService {
         if (!isOwner && !isAdmin) {
             throw new AccessDeniedException("Seul le propriétaire du projet peut effectuer cette action");
         }
+    }
+
+    private Optional<ProjectMember> findMember(Project project, User user) {
+        return project.getMembers().stream()
+                .filter(m -> m.getUser().getId().equals(user.getId()))
+                .findFirst();
     }
 
     private void validateDates(ProjectRequest request) {
@@ -131,7 +168,10 @@ public class ProjectService {
                 project.getStartDate(),
                 project.getEndDate(),
                 project.getOwner().getEmail(),
-                project.getMembers().stream().map(User::getEmail).sorted().toList()
+                project.getMembers().stream()
+                        .map(m -> new ProjectMemberResponse(m.getUser().getEmail(), m.isCanManageTasks()))
+                        .sorted((a, b) -> a.email().compareTo(b.email()))
+                        .toList()
         );
     }
 }

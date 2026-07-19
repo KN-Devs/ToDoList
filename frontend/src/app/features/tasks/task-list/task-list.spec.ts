@@ -6,6 +6,8 @@ import { Task } from '../../../core/models/task.model';
 import { TaskService } from '../../../core/services/task.service';
 import { TaskList } from './task-list';
 
+const PROJECT_ID = 7;
+
 const TASK: Task = {
   id: 1,
   nom: 'Préparer la démo',
@@ -16,7 +18,7 @@ const TASK: Task = {
 
 describe('TaskList', () => {
   let taskService: {
-    getAll: ReturnType<typeof vi.fn>;
+    getAllForProject: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
@@ -26,7 +28,7 @@ describe('TaskList', () => {
 
   beforeEach(() => {
     taskService = {
-      getAll: vi.fn().mockReturnValue(of([TASK])),
+      getAllForProject: vi.fn().mockReturnValue(of([TASK])),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -41,21 +43,22 @@ describe('TaskList', () => {
     });
 
     component = TestBed.createComponent(TaskList).componentInstance;
+    component.projectId = PROJECT_ID;
     confirmSpy = vi.spyOn(window, 'confirm');
   });
 
   afterEach(() => confirmSpy.mockRestore());
 
   it('loads the task list on init', () => {
-    component.ngOnInit();
+    component.ngOnChanges();
 
-    expect(taskService.getAll).toHaveBeenCalled();
+    expect(taskService.getAllForProject).toHaveBeenCalledWith(PROJECT_ID);
     expect(component.tasks()).toEqual([TASK]);
     expect(component.loading()).toBe(false);
   });
 
   it('shows an error message when reload fails', () => {
-    taskService.getAll.mockReturnValue(throwError(() => new Error('network error')));
+    taskService.getAllForProject.mockReturnValue(throwError(() => new Error('network error')));
 
     component.reload();
 
@@ -79,6 +82,11 @@ describe('TaskList', () => {
 
     component.createTask();
 
+    expect(taskService.create).toHaveBeenCalledWith(PROJECT_ID, {
+      nom: 'Nouvelle tâche',
+      description: 'Desc',
+      status: 'TODO',
+    });
     expect(component.tasks()).toEqual([created]);
     expect(component.newTask).toEqual({ nom: '', description: '', status: 'TODO' });
     expect(component.creating()).toBe(false);
@@ -111,7 +119,7 @@ describe('TaskList', () => {
   });
 
   it('saveEdit() updates the task in place and exits edit mode', () => {
-    component.ngOnInit();
+    component.ngOnChanges();
     const updated: Task = { ...TASK, status: 'DONE' };
     taskService.update.mockReturnValue(of(updated));
     component.startEdit(TASK);
@@ -133,7 +141,7 @@ describe('TaskList', () => {
   });
 
   it('deleteTask() removes the task when the confirmation is accepted', () => {
-    component.ngOnInit();
+    component.ngOnChanges();
     confirmSpy.mockReturnValue(true);
     taskService.delete.mockReturnValue(of(undefined));
 
@@ -151,10 +159,14 @@ describe('TaskList', () => {
     expect(component.activeTab()).toBe('board');
   });
 
+  it('defaults canManage to true', () => {
+    expect(component.canManage).toBe(true);
+  });
+
   it('tasksByStatus() groups tasks by their status', () => {
     const inProgress: Task = { ...TASK, id: 2, status: 'IN_PROGRESS' };
-    taskService.getAll.mockReturnValue(of([TASK, inProgress]));
-    component.ngOnInit();
+    taskService.getAllForProject.mockReturnValue(of([TASK, inProgress]));
+    component.ngOnChanges();
 
     const grouped = component.tasksByStatus();
 
@@ -173,8 +185,8 @@ describe('TaskList', () => {
     };
 
     beforeEach(() => {
-      taskService.getAll.mockReturnValue(of([TASK, other]));
-      component.ngOnInit();
+      taskService.getAllForProject.mockReturnValue(of([TASK, other]));
+      component.ngOnChanges();
     });
 
     it('visibleStatuses() returns every status by default', () => {
@@ -219,7 +231,7 @@ describe('TaskList', () => {
     });
 
     it('updates the task status via the service and reflects it in state', () => {
-      component.ngOnInit();
+      component.ngOnChanges();
       const moved: Task = { ...TASK, status: 'DONE' };
       taskService.update.mockReturnValue(of(moved));
 
@@ -259,7 +271,7 @@ describe('TaskList', () => {
     });
 
     it('changes the status when dropped in a different column', () => {
-      component.ngOnInit();
+      component.ngOnChanges();
       const moved: Task = { ...TASK, status: 'IN_PROGRESS' };
       taskService.update.mockReturnValue(of(moved));
 
@@ -309,7 +321,7 @@ describe('TaskList', () => {
     });
 
     it('deleteFromDetail() closes the modal and deletes the task', () => {
-      component.ngOnInit();
+      component.ngOnChanges();
       confirmSpy.mockReturnValue(true);
       taskService.delete.mockReturnValue(of(undefined));
       component.openDetail(TASK);

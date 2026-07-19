@@ -2,12 +2,11 @@ package com.todolist.portfolio.service;
 
 import com.todolist.portfolio.dto.TaskRequest;
 import com.todolist.portfolio.dto.TaskResponse;
-import com.todolist.portfolio.entity.Role;
+import com.todolist.portfolio.entity.Project;
 import com.todolist.portfolio.entity.Task;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.repository.TaskRepository;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -17,34 +16,38 @@ import java.util.List;
 public class TaskService {
 
     private final TaskRepository taskRepository;
+    private final ProjectService projectService;
 
-    public TaskService(TaskRepository taskRepository) {
+    public TaskService(TaskRepository taskRepository, ProjectService projectService) {
         this.taskRepository = taskRepository;
+        this.projectService = projectService;
     }
 
-    public TaskResponse create(TaskRequest request, User currentUser) {
-        Task task = new Task(null, request.getNom(), request.getDescription(), request.getStatus(), currentUser);
+    public TaskResponse create(Integer projectId, TaskRequest request, User currentUser) {
+        Project project = projectService.findOrThrow(projectId);
+        projectService.checkCanManageTasks(project, currentUser);
+
+        Task task = new Task(null, request.getNom(), request.getDescription(), request.getStatus(), currentUser, project);
         taskRepository.save(task);
         return toResponse(task);
     }
 
-    public List<TaskResponse> getAll(User currentUser) {
-        List<Task> tasks = currentUser.getRole() == Role.ADMIN
-                ? taskRepository.findAll()
-                : taskRepository.findByUser(currentUser);
+    public List<TaskResponse> getAllForProject(Integer projectId, User currentUser) {
+        Project project = projectService.findOrThrow(projectId);
+        projectService.checkCanView(project, currentUser);
 
-        return tasks.stream().map(this::toResponse).toList();
+        return taskRepository.findByProject(project).stream().map(this::toResponse).toList();
     }
 
     public TaskResponse getById(Integer id, User currentUser) {
         Task task = findTaskOrThrow(id);
-        checkOwnership(task, currentUser);
+        projectService.checkCanView(task.getProject(), currentUser);
         return toResponse(task);
     }
 
     public TaskResponse update(Integer id, TaskRequest request, User currentUser) {
         Task task = findTaskOrThrow(id);
-        checkOwnership(task, currentUser);
+        projectService.checkCanManageTasks(task.getProject(), currentUser);
 
         task.setNom(request.getNom());
         task.setDescription(request.getDescription());
@@ -56,22 +59,13 @@ public class TaskService {
 
     public void delete(Integer id, User currentUser) {
         Task task = findTaskOrThrow(id);
-        checkOwnership(task, currentUser);
+        projectService.checkCanManageTasks(task.getProject(), currentUser);
         taskRepository.delete(task);
     }
 
     private Task findTaskOrThrow(Integer id) {
         return taskRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tâche introuvable"));
-    }
-
-    private void checkOwnership(Task task, User currentUser) {
-        boolean isOwner = task.getUser().getId().equals(currentUser.getId());
-        boolean isAdmin = currentUser.getRole() == Role.ADMIN;
-
-        if (!isOwner && !isAdmin) {
-            throw new AccessDeniedException("Vous n'avez pas accès à cette tâche");
-        }
     }
 
     private TaskResponse toResponse(Task task) {

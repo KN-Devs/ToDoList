@@ -1,0 +1,22 @@
+.page-header a {
+  display: block;
+  text-decoration: none;
+  margin-bottom: 0.25rem;
+}
+
+.permission-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+
+  input {
+    width: auto;
+  }
+}
+
+.tasks-heading {
+  margin-top: 2rem;
+  font-size: 1.1rem;
+}

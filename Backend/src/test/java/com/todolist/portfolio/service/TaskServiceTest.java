@@ -2,6 +2,7 @@ package com.todolist.portfolio.service;
 
 import com.todolist.portfolio.dto.TaskRequest;
 import com.todolist.portfolio.dto.TaskResponse;
+import com.todolist.portfolio.entity.Project;
 import com.todolist.portfolio.entity.Role;
 import com.todolist.portfolio.entity.Task;
 import com.todolist.portfolio.entity.TaskStatus;
@@ -16,12 +17,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -33,44 +36,47 @@ class TaskServiceTest {
     @Mock
     private TaskRepository taskRepository;
 
+    @Mock
+    private ProjectService projectService;
+
     @InjectMocks
     private TaskService taskService;
 
     private User bob;
-    private User alice;
+    private User stranger;
+    private Project bobProject;
     private Task bobTask;
 
     @BeforeEach
     void setUp() {
         bob = new User(1, "Dupont", "Bob", "bob@test.com", "hash", Role.USER);
-        alice = new User(2, "Martin", "Alice", "alice@test.com", "hash", Role.ADMIN);
-        bobTask = new Task(10, "Tache de Bob", "description", TaskStatus.TODO, bob);
+        stranger = new User(3, "Autre", "User", "stranger@test.com", "hash", Role.USER);
+        bobProject = new Project(10, "Projet de Bob", "description",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 6, 30), bob);
+        bobTask = new Task(10, "Tache de Bob", "description", TaskStatus.TODO, bob, bobProject);
     }
 
     @Test
-    void getAll_whenAdmin_returnsAllTasks() {
-        when(taskRepository.findAll()).thenReturn(List.of(bobTask));
+    void getAllForProject_returnsProjectTasks() {
+        when(projectService.findOrThrow(10)).thenReturn(bobProject);
+        when(taskRepository.findByProject(bobProject)).thenReturn(List.of(bobTask));
 
-        List<TaskResponse> result = taskService.getAll(alice);
+        List<TaskResponse> result = taskService.getAllForProject(10, bob);
 
         assertThat(result).hasSize(1);
-        verify(taskRepository).findAll();
-        verify(taskRepository, never()).findByUser(any());
+        verify(projectService).checkCanView(bobProject, bob);
     }
 
     @Test
-    void getAll_whenUser_returnsOnlyOwnTasks() {
-        when(taskRepository.findByUser(bob)).thenReturn(List.of(bobTask));
+    void getAllForProject_whenNoAccess_throwsAccessDenied() {
+        when(projectService.findOrThrow(10)).thenReturn(bobProject);
+        doThrow(new AccessDeniedException("no")).when(projectService).checkCanView(bobProject, stranger);
 
-        List<TaskResponse> result = taskService.getAll(bob);
-
-        assertThat(result).hasSize(1);
-        verify(taskRepository).findByUser(bob);
-        verify(taskRepository, never()).findAll();
+        assertThrows(AccessDeniedException.class, () -> taskService.getAllForProject(10, stranger));
     }
 
     @Test
-    void getById_whenOwner_returnsTask() {
+    void getById_whenAllowed_returnsTask() {
         when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
 
         TaskResponse result = taskService.getById(10, bob);
@@ -80,21 +86,11 @@ class TaskServiceTest {
     }
 
     @Test
-    void getById_whenNotOwnerAndNotAdmin_throwsAccessDenied() {
+    void getById_whenNoAccess_throwsAccessDenied() {
         when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
-
-        User stranger = new User(3, "Autre", "User", "stranger@test.com", "hash", Role.USER);
+        doThrow(new AccessDeniedException("no")).when(projectService).checkCanView(bobProject, stranger);
 
         assertThrows(AccessDeniedException.class, () -> taskService.getById(10, stranger));
-    }
-
-    @Test
-    void getById_whenAdminNotOwner_returnsTask() {
-        when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
-
-        TaskResponse result = taskService.getById(10, alice);
-
-        assertThat(result.id()).isEqualTo(10);
     }
 
     @Test
@@ -105,17 +101,29 @@ class TaskServiceTest {
     }
 
     @Test
-    void create_savesTaskOwnedByCurrentUser() {
+    void create_whenAllowed_savesTaskInProject() {
+        when(projectService.findOrThrow(10)).thenReturn(bobProject);
         TaskRequest request = new TaskRequest("Nouvelle tache", "desc", TaskStatus.TODO);
 
-        TaskResponse result = taskService.create(request, bob);
+        TaskResponse result = taskService.create(10, request, bob);
 
         assertThat(result.email()).isEqualTo("bob@test.com");
+        verify(projectService).checkCanManageTasks(bobProject, bob);
         verify(taskRepository, times(1)).save(any(Task.class));
     }
 
     @Test
-    void update_whenOwner_updatesFields() {
+    void create_whenNotAllowed_throwsAccessDenied() {
+        when(projectService.findOrThrow(10)).thenReturn(bobProject);
+        doThrow(new AccessDeniedException("no")).when(projectService).checkCanManageTasks(bobProject, stranger);
+        TaskRequest request = new TaskRequest("Nouvelle tache", "desc", TaskStatus.TODO);
+
+        assertThrows(AccessDeniedException.class, () -> taskService.create(10, request, stranger));
+        verify(taskRepository, never()).save(any());
+    }
+
+    @Test
+    void update_whenAllowed_updatesFields() {
         when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
         TaskRequest request = new TaskRequest("Modifiee", "nouvelle desc", TaskStatus.DONE);
 
@@ -126,9 +134,9 @@ class TaskServiceTest {
     }
 
     @Test
-    void delete_whenNotOwnerAndNotAdmin_throwsAccessDenied() {
+    void delete_whenNotAllowed_throwsAccessDenied() {
         when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
-        User stranger = new User(3, "Autre", "User", "stranger@test.com", "hash", Role.USER);
+        doThrow(new AccessDeniedException("no")).when(projectService).checkCanManageTasks(bobProject, stranger);
 
         assertThrows(AccessDeniedException.class, () -> taskService.delete(10, stranger));
         verify(taskRepository, never()).delete(any());

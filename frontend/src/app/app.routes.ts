@@ -14,17 +14,17 @@ export const routes: Routes = [
     canActivate: [guestGuard],
   },
   {
-    path: 'tasks',
-    loadComponent: () =>
-      import('./features/tasks/task-list/task-list').then((m) => m.TaskList),
-    canActivate: [authGuard],
-  },
-  {
     path: 'projects',
     loadComponent: () =>
       import('./features/projects/project-list/project-list').then((m) => m.ProjectList),
     canActivate: [authGuard],
   },
-  { path: '', redirectTo: 'tasks', pathMatch: 'full' },
-  { path: '**', redirectTo: 'tasks' },
+  {
+    path: 'projects/:id',
+    loadComponent: () =>
+      import('./features/projects/project-detail/project-detail').then((m) => m.ProjectDetail),
+    canActivate: [authGuard],
+  },
+  { path: '', redirectTo: 'projects', pathMatch: 'full' },
+  { path: '**', redirectTo: 'projects' },
 ];

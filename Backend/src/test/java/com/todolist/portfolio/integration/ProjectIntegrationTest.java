@@ -87,7 +87,7 @@ class ProjectIntegrationTest {
                 "/api/projects/" + projectId + "/members", HttpMethod.POST, addMemberEntity, ProjectResponse.class);
 
         assertThat(addMemberResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(addMemberResponse.getBody().memberEmails()).containsExactly("project2-member@test.com");
+        assertThat(addMemberResponse.getBody().members()).extracting("email").containsExactly("project2-member@test.com");
 
         HttpEntity<Void> getEntity = new HttpEntity<>(authHeaders(memberToken));
         ResponseEntity<ProjectResponse> memberViewResponse = restTemplate.exchange(

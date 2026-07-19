@@ -8,12 +8,12 @@ import { Task, TaskRequest } from '../models/task.model';
 export class TaskService {
   constructor(private readonly http: HttpClient) {}
 
-  getAll(): Observable<Task[]> {
-    return this.http.get<Task[]>(`${API_BASE_URL}/tasks`);
+  getAllForProject(projectId: number): Observable<Task[]> {
+    return this.http.get<Task[]>(`${API_BASE_URL}/projects/${projectId}/tasks`);
   }
 
-  create(request: TaskRequest): Observable<Task> {
-    return this.http.post<Task>(`${API_BASE_URL}/tasks`, request);
+  create(projectId: number, request: TaskRequest): Observable<Task> {
+    return this.http.post<Task>(`${API_BASE_URL}/projects/${projectId}/tasks`, request);
   }
 
   update(id: number, request: TaskRequest): Observable<Task> {

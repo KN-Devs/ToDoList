@@ -3,6 +3,7 @@ package com.todolist.portfolio.controller;
 import com.todolist.portfolio.dto.AddMemberRequest;
 import com.todolist.portfolio.dto.ProjectRequest;
 import com.todolist.portfolio.dto.ProjectResponse;
+import com.todolist.portfolio.dto.UpdateMemberPermissionRequest;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.service.ProjectService;
 import jakarta.validation.Valid;
@@ -13,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -75,6 +77,14 @@ public class ProjectController {
                                          Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
         return projectService.removeMember(id, email, currentUser);
+    }
+
+    @PatchMapping("/{id}/members/{email}")
+    public ProjectResponse updateMemberPermission(@PathVariable Integer id, @PathVariable String email,
+                                                    @Valid @RequestBody UpdateMemberPermissionRequest request,
+                                                    Authentication authentication) {
+        User currentUser = (User) authentication.getPrincipal();
+        return projectService.updateMemberPermission(id, email, request.canManageTasks(), currentUser);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

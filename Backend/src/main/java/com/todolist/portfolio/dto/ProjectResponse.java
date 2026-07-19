@@ -10,6 +10,6 @@ public record ProjectResponse(
         LocalDate startDate,
         LocalDate endDate,
         String ownerEmail,
-        List<String> memberEmails
+        List<ProjectMemberResponse> members
 ) {
 }

@@ -65,107 +65,14 @@
 } @else {
   <ul class="project-list">
     @for (project of projects(); track project.id) {
-      <li class="project-card" (click)="openDetail(project)">
+      <li class="project-card" (click)="openProject(project)">
         <div class="project-card-top">
           <h3>{{ project.nom }}</h3>
           <span class="hint">{{ project.startDate }} → {{ project.endDate }}</span>
         </div>
         <p>{{ project.description }}</p>
-        <span class="hint">{{ project.memberEmails.length + 1 }} membre(s)</span>
+        <span class="hint">{{ project.members.length + 1 }} membre(s)</span>
       </li>
     }
   </ul>
-}
-
-@if (selectedProject(); as project) {
-  <div class="modal-backdrop" (click)="closeDetail()">
-    <div class="modal-card" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h2>{{ project.nom }}</h2>
-        <button
-          type="button"
-          class="secondary modal-close"
-          (click)="closeDetail()"
-          aria-label="Fermer"
-        >
-          ✕
-        </button>
-      </div>
-
-      @if (!editing()) {
-        <p class="hint">{{ project.startDate }} → {{ project.endDate }}</p>
-        <p class="modal-description">{{ project.description }}</p>
-
-        <p class="task-owner">Propriétaire : {{ project.ownerEmail }}</p>
-
-        <h3>Membres</h3>
-        @if (project.memberEmails.length === 0) {
-          <p class="hint">Aucun membre pour l'instant.</p>
-        } @else {
-          <ul class="member-list">
-            @for (email of project.memberEmails; track email) {
-              <li>
-                <span>{{ email }}</span>
-                @if (isOwner(project)) {
-                  <button
-                    type="button"
-                    class="secondary"
-                    (click)="removeMember(project, email)"
-                  >
-                    Retirer
-                  </button>
-                }
-              </li>
-            }
-          </ul>
-        }
-
-        @if (isOwner(project)) {
-          <form class="add-member-form" (ngSubmit)="addMember(project)">
-            <label>
-              Ajouter une personne par email
-              <input
-                type="email"
-                name="newMemberEmail"
-                [(ngModel)]="newMemberEmail"
-                placeholder="email@exemple.com"
-              />
-            </label>
-            @if (memberError()) {
-              <p class="error">{{ memberError() }}</p>
-            }
-            <button type="submit" [disabled]="addingMember()">
-              {{ addingMember() ? 'Ajout...' : 'Ajouter' }}
-            </button>
-          </form>
-
-          <div class="project-card-actions">
-            <button type="button" class="secondary" (click)="startEdit(project)">Modifier</button>
-            <button type="button" class="danger" (click)="deleteProject(project)">Supprimer</button>
-          </div>
-        }
-      } @else {
-        <label>
-          Nom
-          <input type="text" name="edit-nom" [(ngModel)]="editForm.nom" required maxlength="100" />
-        </label>
-        <label>
-          Description
-          <textarea name="edit-description" rows="3" [(ngModel)]="editForm.description" required></textarea>
-        </label>
-        <label>
-          Date de début
-          <input type="date" name="edit-startDate" [(ngModel)]="editForm.startDate" required />
-        </label>
-        <label>
-          Date de fin
-          <input type="date" name="edit-endDate" [(ngModel)]="editForm.endDate" required />
-        </label>
-        <div class="project-card-actions">
-          <button type="button" (click)="saveEdit(project)">Enregistrer</button>
-          <button type="button" class="secondary" (click)="cancelEdit()">Annuler</button>
-        </div>
-      }
-    </div>
-  </div>
 }

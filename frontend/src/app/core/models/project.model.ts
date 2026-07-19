@@ -1,3 +1,8 @@
+export interface ProjectMember {
+  email: string;
+  canManageTasks: boolean;
+}
+
 export interface Project {
   id: number;
   nom: string;
@@ -5,7 +10,7 @@ export interface Project {
   startDate: string;
   endDate: string;
   ownerEmail: string;
-  memberEmails: string[];
+  members: ProjectMember[];
 }
 
 export interface ProjectRequest {
