@@ -11,6 +11,7 @@ export interface Project {
   endDate: string;
   ownerEmail: string;
   members: ProjectMember[];
+  pendingInvitations: string[];
 }
 
 export interface ProjectRequest {

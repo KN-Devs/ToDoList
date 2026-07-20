@@ -20,6 +20,19 @@ export interface AuthResponse {
   token: string;
 }
 
+export interface EmailOnlyRequest {
+  email: string;
+}
+
+export interface ConfirmEmailRequest {
+  token: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+}
+
 export type Role = 'ADMIN' | 'USER';
 
 export interface User {

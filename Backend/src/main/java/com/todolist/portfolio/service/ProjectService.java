@@ -6,9 +6,12 @@ import com.todolist.portfolio.dto.ProjectResponse;
 import com.todolist.portfolio.entity.Project;
 import com.todolist.portfolio.entity.ProjectMember;
 import com.todolist.portfolio.entity.Role;
+import com.todolist.portfolio.entity.TokenType;
 import com.todolist.portfolio.entity.User;
+import com.todolist.portfolio.entity.VerificationToken;
 import com.todolist.portfolio.repository.ProjectRepository;
 import com.todolist.portfolio.repository.UserRepository;
+import com.todolist.portfolio.repository.VerificationTokenRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -22,10 +25,18 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final VerificationTokenRepository verificationTokenRepository;
+    private final VerificationTokenService verificationTokenService;
+    private final EmailService emailService;
 
-    public ProjectService(ProjectRepository projectRepository, UserRepository userRepository) {
+    public ProjectService(ProjectRepository projectRepository, UserRepository userRepository,
+                           VerificationTokenRepository verificationTokenRepository,
+                           VerificationTokenService verificationTokenService, EmailService emailService) {
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
+        this.verificationTokenRepository = verificationTokenRepository;
+        this.verificationTokenService = verificationTokenService;
+        this.emailService = emailService;
     }
 
     public ProjectResponse create(ProjectRequest request, User owner) {
@@ -71,23 +82,46 @@ public class ProjectService {
         projectRepository.delete(project);
     }
 
-    public ProjectResponse addMember(Integer id, String email, User currentUser) {
+    public ProjectResponse inviteMember(Integer id, String email, User currentUser) {
         Project project = findOrThrow(id);
         checkOwner(project, currentUser);
 
-        User newMember = userRepository.findByEmail(email.toLowerCase())
+        User invitee = userRepository.findByEmail(email.toLowerCase())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Aucun utilisateur avec cet email"));
 
-        if (newMember.getId().equals(project.getOwner().getId())) {
+        if (invitee.getId().equals(project.getOwner().getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le propriétaire est déjà membre du projet");
         }
 
-        if (findMember(project, newMember).isPresent()) {
+        if (findMember(project, invitee).isPresent()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cette personne est déjà membre du projet");
         }
 
-        project.getMembers().add(new ProjectMember(project, newMember, false));
-        projectRepository.save(project);
+        if (verificationTokenRepository
+                .findByProjectAndUserAndTypeAndConsumedAtIsNull(project, invitee, TokenType.PROJECT_INVITATION)
+                .isPresent()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cette personne a déjà été invitée");
+        }
+
+        VerificationToken invitationToken =
+                verificationTokenService.createToken(invitee, TokenType.PROJECT_INVITATION, project);
+        emailService.sendProjectInvitation(invitee, currentUser, project, invitationToken.getToken());
+
+        return toResponse(project);
+    }
+
+    public ProjectResponse cancelInvitation(Integer id, String email, User currentUser) {
+        Project project = findOrThrow(id);
+        checkOwner(project, currentUser);
+
+        User invitee = userRepository.findByEmail(email.toLowerCase())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Aucun utilisateur avec cet email"));
+
+        VerificationToken invitationToken = verificationTokenRepository
+                .findByProjectAndUserAndTypeAndConsumedAtIsNull(project, invitee, TokenType.PROJECT_INVITATION)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Aucune invitation en attente pour cette personne"));
+
+        verificationTokenRepository.delete(invitationToken);
         return toResponse(project);
     }
 
@@ -143,7 +177,7 @@ public class ProjectService {
         return isOwner || isAdmin || canManage;
     }
 
-    private void checkOwner(Project project, User user) {
+    public void checkOwner(Project project, User user) {
         boolean isOwner = project.getOwner().getId().equals(user.getId());
         boolean isAdmin = user.getRole() == Role.ADMIN;
 
@@ -175,6 +209,11 @@ public class ProjectService {
                 project.getMembers().stream()
                         .map(m -> new ProjectMemberResponse(m.getUser().getEmail(), m.isCanManageTasks()))
                         .sorted((a, b) -> a.email().compareTo(b.email()))
+                        .toList(),
+                verificationTokenRepository.findByProjectAndTypeAndConsumedAtIsNull(project, TokenType.PROJECT_INVITATION)
+                        .stream()
+                        .map(t -> t.getUser().getEmail())
+                        .sorted()
                         .toList()
         );
     }

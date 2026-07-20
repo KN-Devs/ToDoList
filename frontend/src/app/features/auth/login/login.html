@@ -22,9 +22,23 @@
       <p class="error">{{ errorMessage() }}</p>
     }
 
+    @if (needsConfirmation()) {
+      @if (resendSent()) {
+        <p class="hint">Un nouvel email de confirmation a été envoyé si ce compte existe.</p>
+      } @else {
+        <button type="button" class="secondary" (click)="resendConfirmation()">
+          Renvoyer l'email de confirmation
+        </button>
+      }
+    }
+
     <button type="submit" [disabled]="loading()">
       {{ loading() ? 'Connexion...' : 'Se connecter' }}
     </button>
+
+    <p class="switch">
+      <a routerLink="/forgot-password">Mot de passe oublié ?</a>
+    </p>
 
     <p class="switch">
       Pas encore de compte ?

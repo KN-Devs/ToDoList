@@ -22,6 +22,13 @@ services:
       SPRING_DATASOURCE_USERNAME: todolist
       SPRING_DATASOURCE_PASSWORD: todolist
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (e.g. in a local .env file, never committed)}
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4200}
     ports:
       - "8080:8080"
     depends_on:

@@ -105,7 +105,7 @@ export class ProjectDetail implements OnInit {
     });
   }
 
-  addMember(project: Project): void {
+  inviteMember(project: Project): void {
     if (!this.newMemberEmail) {
       return;
     }
@@ -114,7 +114,7 @@ export class ProjectDetail implements OnInit {
     this.memberError.set(null);
     this.errorMessage.set(null);
 
-    this.projectService.addMember(project.id, this.newMemberEmail).subscribe({
+    this.projectService.inviteMember(project.id, this.newMemberEmail).subscribe({
       next: (updated) => {
         this.project.set(updated);
         this.newMemberEmail = '';
@@ -126,10 +126,18 @@ export class ProjectDetail implements OnInit {
           error.status === 404
             ? 'Aucun utilisateur avec cet email'
             : error.status === 400
-              ? 'Cette personne est déjà membre du projet'
-              : "Impossible d'ajouter cette personne"
+              ? 'Cette personne est déjà membre ou déjà invitée'
+              : "Impossible d'inviter cette personne"
         );
       },
+    });
+  }
+
+  cancelInvitation(project: Project, email: string): void {
+    this.errorMessage.set(null);
+    this.projectService.cancelInvitation(project.id, email).subscribe({
+      next: (updated) => this.project.set(updated),
+      error: () => this.errorMessage.set("Impossible d'annuler cette invitation"),
     });
   }
 

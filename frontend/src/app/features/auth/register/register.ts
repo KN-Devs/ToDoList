@@ -18,6 +18,7 @@ export class Register {
 
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
+  readonly registered = signal(false);
 
   constructor(
     private readonly authService: AuthService,
@@ -35,11 +36,18 @@ export class Register {
     this.authService
       .register({ nom: this.nom, prenom: this.prenom, email: this.email, password: this.password })
       .subscribe({
-        next: () => this.router.navigate(['/tasks']),
+        next: () => {
+          this.loading.set(false);
+          this.registered.set(true);
+        },
         error: () => {
           this.errorMessage.set("Impossible de créer le compte, vérifie les informations saisies");
           this.loading.set(false);
         },
       });
+  }
+
+  continue(): void {
+    this.router.navigate(['/projects']);
   }
 }

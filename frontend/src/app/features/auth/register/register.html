@@ -1,4 +1,15 @@
 <div class="auth-page">
+  @if (registered()) {
+    <div class="auth-card">
+      <h1>Compte créé</h1>
+      <p class="modal-description">
+        Un email de confirmation a été envoyé à ton adresse. Clique sur le lien qu'il contient pour
+        confirmer ton compte ; tant qu'il n'est pas confirmé, tu ne pourras pas te reconnecter après
+        expiration de ta session.
+      </p>
+      <button type="button" (click)="continue()">Continuer</button>
+    </div>
+  } @else {
   <form class="auth-card" (ngSubmit)="submit()">
     <h1>Créer un compte</h1>
 
@@ -65,4 +76,5 @@
       <a routerLink="/login">Se connecter</a>
     </p>
   </form>
+  }
 </div>

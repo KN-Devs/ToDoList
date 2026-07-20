@@ -28,8 +28,14 @@ export class ProjectService {
     return this.http.delete<void>(`${API_BASE_URL}/projects/${id}`);
   }
 
-  addMember(id: number, email: string): Observable<Project> {
-    return this.http.post<Project>(`${API_BASE_URL}/projects/${id}/members`, { email });
+  inviteMember(id: number, email: string): Observable<Project> {
+    return this.http.post<Project>(`${API_BASE_URL}/projects/${id}/invitations`, { email });
+  }
+
+  cancelInvitation(id: number, email: string): Observable<Project> {
+    return this.http.delete<Project>(
+      `${API_BASE_URL}/projects/${id}/invitations/${encodeURIComponent(email)}`
+    );
   }
 
   removeMember(id: number, email: string): Observable<Project> {

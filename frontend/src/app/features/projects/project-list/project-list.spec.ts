@@ -14,6 +14,7 @@ const PROJECT: Project = {
   endDate: '2026-06-30',
   ownerEmail: 'marie@example.com',
   members: [],
+  pendingInvitations: [],
 };
 
 describe('ProjectList', () => {

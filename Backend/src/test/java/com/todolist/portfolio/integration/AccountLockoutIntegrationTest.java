@@ -45,6 +45,13 @@ class AccountLockoutIntegrationTest {
         restTemplate.postForEntity("/api/auth/register", request, AuthResponse.class);
     }
 
+    private void registerAndVerify(String email, String password) {
+        register(email, password);
+        User user = userRepository.findByEmail(email).orElseThrow();
+        user.setEmailVerified(true);
+        userRepository.save(user);
+    }
+
     private ResponseEntity<String> attemptLogin(String email, String password) {
         return restTemplate.postForEntity("/api/auth/login", new LoginRequest(email, password), String.class);
     }
@@ -67,7 +74,7 @@ class AccountLockoutIntegrationTest {
     @Test
     void successfulLogin_resetsFailedAttemptCounter() {
         String email = "lockout2@test.com";
-        register(email, "Password123!");
+        registerAndVerify(email, "Password123!");
 
         attemptLogin(email, "wrong1");
         attemptLogin(email, "wrong2");
@@ -84,7 +91,7 @@ class AccountLockoutIntegrationTest {
     @Test
     void adminResetPassword_allowsLoginWithNewPasswordAfterLockout() {
         String email = "lockout3@test.com";
-        register(email, "Password123!");
+        registerAndVerify(email, "Password123!");
 
         attemptLogin(email, "wrong1");
         attemptLogin(email, "wrong2");
@@ -94,7 +101,7 @@ class AccountLockoutIntegrationTest {
         assertThat(lockedUser.isAccountNonLocked()).isFalse();
 
         String adminEmail = "lockout-admin@test.com";
-        register(adminEmail, "Password123!");
+        registerAndVerify(adminEmail, "Password123!");
         User admin = userRepository.findByEmail(adminEmail).orElseThrow();
         admin.setRole(Role.ADMIN);
         userRepository.save(admin);

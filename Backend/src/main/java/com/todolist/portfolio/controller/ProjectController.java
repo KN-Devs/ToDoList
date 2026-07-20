@@ -1,6 +1,6 @@
 package com.todolist.portfolio.controller;
 
-import com.todolist.portfolio.dto.AddMemberRequest;
+import com.todolist.portfolio.dto.InviteMemberRequest;
 import com.todolist.portfolio.dto.ProjectRequest;
 import com.todolist.portfolio.dto.ProjectResponse;
 import com.todolist.portfolio.dto.UpdateMemberPermissionRequest;
@@ -67,11 +67,18 @@ public class ProjectController {
         projectService.delete(id, currentUser);
     }
 
-    @PostMapping("/{id}/members")
-    public ProjectResponse addMember(@PathVariable Integer id, @Valid @RequestBody AddMemberRequest request,
-                                      Authentication authentication) {
+    @PostMapping("/{id}/invitations")
+    public ProjectResponse inviteMember(@PathVariable Integer id, @Valid @RequestBody InviteMemberRequest request,
+                                         Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
-        return projectService.addMember(id, request.getEmail(), currentUser);
+        return projectService.inviteMember(id, request.getEmail(), currentUser);
+    }
+
+    @DeleteMapping("/{id}/invitations/{email}")
+    public ProjectResponse cancelInvitation(@PathVariable Integer id, @PathVariable String email,
+                                             Authentication authentication) {
+        User currentUser = (User) authentication.getPrincipal();
+        return projectService.cancelInvitation(id, email, currentUser);
     }
 
     @DeleteMapping("/{id}/members/{email}")

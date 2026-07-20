@@ -4,8 +4,11 @@ import { Observable, switchMap, tap } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import {
   AuthResponse,
+  ConfirmEmailRequest,
+  EmailOnlyRequest,
   LoginRequest,
   RegisterRequest,
+  ResetPasswordRequest,
   UpdateProfileRequest,
   User,
 } from '../models/auth.model';
@@ -43,6 +46,26 @@ export class AuthService {
       tap((response) => this.setToken(response.token)),
       switchMap(() => this.loadCurrentUser())
     );
+  }
+
+  confirmEmail(token: string): Observable<void> {
+    const request: ConfirmEmailRequest = { token };
+    return this.http.post<void>(`${API_BASE_URL}/auth/confirm-email`, request);
+  }
+
+  resendConfirmation(email: string): Observable<void> {
+    const request: EmailOnlyRequest = { email };
+    return this.http.post<void>(`${API_BASE_URL}/auth/resend-confirmation`, request);
+  }
+
+  forgotPassword(email: string): Observable<void> {
+    const request: EmailOnlyRequest = { email };
+    return this.http.post<void>(`${API_BASE_URL}/auth/forgot-password`, request);
+  }
+
+  resetPassword(token: string, newPassword: string): Observable<void> {
+    const request: ResetPasswordRequest = { token, newPassword };
+    return this.http.post<void>(`${API_BASE_URL}/auth/reset-password`, request);
   }
 
   loadCurrentUser(): Observable<User> {
