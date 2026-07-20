@@ -1,11 +1,21 @@
-import { Injectable, effect } from '@angular/core';
-import { Client, IMessage } from '@stomp/stompjs';
+import { Injectable, InjectionToken, effect, inject } from '@angular/core';
+import { Client, IMessage, StompConfig } from '@stomp/stompjs';
 import { BehaviorSubject, EMPTY, Observable, switchMap } from 'rxjs';
 import { WS_BASE_URL } from '../config/api.config';
 import { CommentEvent } from '../models/comment.model';
 import { Notification } from '../models/notification.model';
 import { TaskEvent } from '../models/task.model';
 import { AuthService } from './auth.service';
+
+/**
+ * Indirection injectable vers `new Client(...)` : substituée dans les tests
+ * par une fabrique de faux client, plus robuste qu'un mock du module
+ * `@stomp/stompjs` (dont l'interception peut varier selon l'environnement).
+ */
+export const STOMP_CLIENT_FACTORY = new InjectionToken<(config: StompConfig) => Client>(
+  'STOMP_CLIENT_FACTORY',
+  { providedIn: 'root', factory: () => (config: StompConfig) => new Client(config) }
+);
 
 /**
  * Le token JWT n'est vérifié qu'une fois, à la connexion STOMP (CONNECT) : la
@@ -17,6 +27,7 @@ import { AuthService } from './auth.service';
 export class RealtimeService {
   private client: Client | null = null;
   private readonly connected$ = new BehaviorSubject(false);
+  private readonly createClient = inject(STOMP_CLIENT_FACTORY);
 
   constructor(private readonly authService: AuthService) {
     effect(() => {
@@ -50,7 +61,7 @@ export class RealtimeService {
       return;
     }
 
-    this.client = new Client({
+    this.client = this.createClient({
       brokerURL: `${WS_BASE_URL}/ws`,
       connectHeaders: { Authorization: `Bearer ${token}` },
       reconnectDelay: 5000,

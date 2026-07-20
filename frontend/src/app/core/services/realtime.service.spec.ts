@@ -1,30 +1,24 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { Client, StompConfig } from '@stomp/stompjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from './auth.service';
-import { RealtimeService } from './realtime.service';
+import { RealtimeService, STOMP_CLIENT_FACTORY } from './realtime.service';
 
 const activateMock = vi.fn();
 const deactivateMock = vi.fn();
 const subscribeMock = vi.fn();
 const unsubscribeMock = vi.fn();
-let lastClientConfig: {
-  brokerURL: string;
-  connectHeaders: Record<string, string>;
-  onConnect: () => void;
-  onWebSocketClose: () => void;
-} | null = null;
+let lastClientConfig: StompConfig | null = null;
 
-vi.mock('@stomp/stompjs', () => ({
-  Client: class {
-    constructor(config: typeof lastClientConfig) {
-      lastClientConfig = config;
-    }
-    activate = activateMock;
-    deactivate = deactivateMock;
-    subscribe = subscribeMock.mockReturnValue({ unsubscribe: unsubscribeMock });
-  },
-}));
+const fakeClientFactory = (config: StompConfig): Client => {
+  lastClientConfig = config;
+  return {
+    activate: activateMock,
+    deactivate: deactivateMock,
+    subscribe: subscribeMock.mockReturnValue({ unsubscribe: unsubscribeMock }),
+  } as unknown as Client;
+};
 
 describe('RealtimeService', () => {
   let isAuthenticated: ReturnType<typeof signal<boolean>>;
@@ -47,6 +41,7 @@ describe('RealtimeService', () => {
           provide: AuthService,
           useValue: { isAuthenticated, token },
         },
+        { provide: STOMP_CLIENT_FACTORY, useValue: fakeClientFactory },
       ],
     });
 
@@ -64,7 +59,7 @@ describe('RealtimeService', () => {
     TestBed.tick();
 
     expect(activateMock).toHaveBeenCalledTimes(1);
-    expect(lastClientConfig?.connectHeaders['Authorization']).toBe('Bearer jwt-abc');
+    expect(lastClientConfig?.connectHeaders?.['Authorization']).toBe('Bearer jwt-abc');
   });
 
   it('disconnects when the user logs out', () => {
@@ -99,7 +94,7 @@ describe('RealtimeService', () => {
 
     expect(subscribeMock).not.toHaveBeenCalled();
 
-    lastClientConfig!.onConnect();
+    lastClientConfig!.onConnect!({} as never);
 
     expect(subscribeMock).toHaveBeenCalledWith('/topic/projects/5/tasks', expect.any(Function));
 
@@ -115,7 +110,7 @@ describe('RealtimeService', () => {
     TestBed.tick();
 
     service.watchTaskComments(5, 42).subscribe();
-    lastClientConfig!.onConnect();
+    lastClientConfig!.onConnect!({} as never);
 
     expect(subscribeMock).toHaveBeenCalledWith('/topic/projects/5/tasks/42/comments', expect.any(Function));
   });
@@ -126,7 +121,7 @@ describe('RealtimeService', () => {
     TestBed.tick();
 
     service.watchNotifications().subscribe();
-    lastClientConfig!.onConnect();
+    lastClientConfig!.onConnect!({} as never);
 
     expect(subscribeMock).toHaveBeenCalledWith('/user/queue/notifications', expect.any(Function));
   });
@@ -137,10 +132,10 @@ describe('RealtimeService', () => {
     TestBed.tick();
 
     service.watchProjectTasks(5).subscribe();
-    lastClientConfig!.onConnect();
+    lastClientConfig!.onConnect!({} as never);
     expect(subscribeMock).toHaveBeenCalledTimes(1);
 
-    lastClientConfig!.onWebSocketClose();
+    lastClientConfig!.onWebSocketClose!({} as never);
 
     expect(unsubscribeMock).toHaveBeenCalledTimes(1);
   });
