@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class TaskService {
@@ -29,6 +30,7 @@ public class TaskService {
         projectService.checkCanManageTasks(project, currentUser);
 
         Task task = new Task(null, request.getNom(), request.getDescription(), request.getStatus(), currentUser, project);
+        task.setDueDate(request.getDueDate());
         taskRepository.save(task);
         return toResponse(task);
     }
@@ -53,11 +55,13 @@ public class TaskService {
         if (projectService.hasManageRights(project, currentUser)) {
             task.setNom(request.getNom());
             task.setDescription(request.getDescription());
+            task.setDueDate(request.getDueDate());
         } else {
             projectService.checkCanView(project, currentUser);
 
             boolean onlyStatusChanges = task.getNom().equals(request.getNom())
-                    && task.getDescription().equals(request.getDescription());
+                    && task.getDescription().equals(request.getDescription())
+                    && Objects.equals(task.getDueDate(), request.getDueDate());
             if (!onlyStatusChanges) {
                 throw new AccessDeniedException("Vous pouvez uniquement changer le statut de cette tâche");
             }
@@ -74,7 +78,7 @@ public class TaskService {
         taskRepository.delete(task);
     }
 
-    private Task findTaskOrThrow(Integer id) {
+    public Task findTaskOrThrow(Integer id) {
         return taskRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tâche introuvable"));
     }
@@ -85,7 +89,8 @@ public class TaskService {
                 task.getNom(),
                 task.getDescription(),
                 task.getStatus(),
-                task.getUser().getEmail()
+                task.getUser().getEmail(),
+                task.getDueDate()
         );
     }
 }

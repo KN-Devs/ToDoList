@@ -44,6 +44,11 @@
       </select>
     </label>
 
+    <label>
+      Date d'échéance (optionnelle)
+      <input type="date" name="dueDate" [(ngModel)]="newTask.dueDate" />
+    </label>
+
     <div class="form-actions">
       <button type="submit" [disabled]="creating()">
         {{ creating() ? 'Ajout...' : 'Ajouter la tâche' }}
@@ -124,6 +129,15 @@
                     }
                   </select>
                 </label>
+                <label>
+                  Date d'échéance
+                  <input
+                    type="date"
+                    name="edit-dueDate-{{ task.id }}"
+                    [(ngModel)]="editForm.dueDate"
+                    (click)="$event.stopPropagation()"
+                  />
+                </label>
                 <div class="task-card-actions">
                   <button type="button" (click)="saveEdit(task); $event.stopPropagation()">
                     Enregistrer
@@ -141,6 +155,11 @@
                   <div>
                     <h3>{{ task.nom }}</h3>
                     <p>{{ task.description }}</p>
+                    @if (task.dueDate) {
+                      <p class="due-date-badge due-date-{{ dueDateUrgency(task.dueDate) ?? 'normal' }}">
+                        Échéance : {{ task.dueDate }}
+                      </p>
+                    }
                     @if (authService.isAdmin()) {
                       <p class="task-owner">{{ task.email }}</p>
                     }
@@ -204,6 +223,12 @@
 
       <p class="modal-description">{{ task.description }}</p>
 
+      @if (task.dueDate) {
+        <p class="due-date-badge due-date-{{ dueDateUrgency(task.dueDate) ?? 'normal' }}">
+          Échéance : {{ task.dueDate }}
+        </p>
+      }
+
       @if (authService.isAdmin()) {
         <p class="task-owner">{{ task.email }}</p>
       }
@@ -214,6 +239,79 @@
           <button type="button" class="danger" (click)="deleteFromDetail(task)">Supprimer</button>
         </div>
       }
+
+      <h3>Pièces jointes</h3>
+      @if (attachmentError()) {
+        <p class="error">{{ attachmentError() }}</p>
+      }
+      @if (loadingAttachments()) {
+        <p class="hint">Chargement...</p>
+      } @else if (attachments().length === 0) {
+        <p class="hint">Aucune pièce jointe.</p>
+      } @else {
+        <ul class="attachment-list">
+          @for (attachment of attachments(); track attachment.id) {
+            <li>
+              <div class="attachment-info">
+                <span>{{ attachment.filename }}</span>
+                <span class="hint">{{ formatFileSize(attachment.fileSize) }} · {{ attachment.uploadedByEmail }}</span>
+              </div>
+              <div class="attachment-actions">
+                <button type="button" class="secondary" (click)="downloadAttachment(task.id, attachment)">
+                  Télécharger
+                </button>
+                @if (canManage) {
+                  <button type="button" class="danger" (click)="deleteAttachment(task.id, attachment.id)">
+                    Supprimer
+                  </button>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      }
+      @if (canManage) {
+        <label class="attachment-upload">
+          Ajouter un fichier (5 Mo maximum)
+          <input type="file" (change)="onFileSelected($event, task.id)" [disabled]="uploadingAttachment()" />
+        </label>
+      }
+
+      <h3>Commentaires</h3>
+      @if (commentError()) {
+        <p class="error">{{ commentError() }}</p>
+      }
+      @if (loadingComments()) {
+        <p class="hint">Chargement...</p>
+      } @else if (comments().length === 0) {
+        <p class="hint">Aucun commentaire pour l'instant.</p>
+      } @else {
+        <ul class="comment-list">
+          @for (comment of comments(); track comment.id) {
+            <li>
+              <div class="comment-header">
+                <span class="comment-author">{{ comment.authorEmail }}</span>
+                <span class="hint">{{ comment.createdAt | date: 'short' }}</span>
+              </div>
+              <p class="comment-content">{{ comment.content }}</p>
+              @if (isOwnComment(comment)) {
+                <button type="button" class="secondary" (click)="deleteComment(task.id, comment.id)">
+                  Supprimer
+                </button>
+              }
+            </li>
+          }
+        </ul>
+      }
+      <form class="comment-form" (ngSubmit)="postComment(task.id)">
+        <label>
+          Ajouter un commentaire
+          <textarea name="newComment" rows="2" [(ngModel)]="newCommentContent" required></textarea>
+        </label>
+        <button type="submit" [disabled]="postingComment()">
+          {{ postingComment() ? 'Envoi...' : 'Commenter' }}
+        </button>
+      </form>
     </div>
   </div>
 }

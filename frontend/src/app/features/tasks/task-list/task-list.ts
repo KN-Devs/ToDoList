@@ -1,8 +1,13 @@
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
+import { DatePipe } from '@angular/common';
 import { Component, HostListener, Input, OnChanges, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
+import { AttachmentService } from '../../../core/services/attachment.service';
+import { CommentService } from '../../../core/services/comment.service';
 import { TaskService } from '../../../core/services/task.service';
+import { Attachment } from '../../../core/models/attachment.model';
+import { Comment } from '../../../core/models/comment.model';
 import {
   TASK_STATUSES,
   TASK_STATUS_LABELS,
@@ -13,11 +18,12 @@ import {
 
 export type TasksTab = 'board' | 'create';
 export type StatusFilter = TaskStatus | 'ALL';
+export type DueDateUrgency = 'overdue' | 'soon';
 
 @Component({
   selector: 'app-task-list',
   standalone: true,
-  imports: [FormsModule, DragDropModule],
+  imports: [FormsModule, DragDropModule, DatePipe],
   templateUrl: './task-list.html',
   styleUrl: './task-list.scss',
 })
@@ -65,16 +71,29 @@ export class TaskList implements OnChanges {
     this.visibleStatuses().some((status) => this.tasksByStatus()[status].length > 0)
   );
 
-  newTask: TaskRequest = { nom: '', description: '', status: 'TODO' };
+  newTask: TaskRequest = { nom: '', description: '', status: 'TODO', dueDate: null };
   readonly creating = signal(false);
 
   readonly editingId = signal<number | null>(null);
-  editForm: TaskRequest = { nom: '', description: '', status: 'TODO' };
+  editForm: TaskRequest = { nom: '', description: '', status: 'TODO', dueDate: null };
 
   readonly selectedTask = signal<Task | null>(null);
 
+  readonly comments = signal<Comment[]>([]);
+  readonly loadingComments = signal(false);
+  readonly commentError = signal<string | null>(null);
+  newCommentContent = '';
+  readonly postingComment = signal(false);
+
+  readonly attachments = signal<Attachment[]>([]);
+  readonly loadingAttachments = signal(false);
+  readonly attachmentError = signal<string | null>(null);
+  readonly uploadingAttachment = signal(false);
+
   constructor(
     private readonly taskService: TaskService,
+    private readonly commentService: CommentService,
+    private readonly attachmentService: AttachmentService,
     protected readonly authService: AuthService
   ) {}
 
@@ -108,7 +127,7 @@ export class TaskList implements OnChanges {
     this.taskService.create(this.projectId, this.newTask).subscribe({
       next: (task) => {
         this.tasks.update((tasks) => [...tasks, task]);
-        this.newTask = { nom: '', description: '', status: 'TODO' };
+        this.newTask = { nom: '', description: '', status: 'TODO', dueDate: null };
         this.creating.set(false);
         this.activeTab.set('board');
       },
@@ -121,7 +140,12 @@ export class TaskList implements OnChanges {
 
   startEdit(task: Task): void {
     this.editingId.set(task.id);
-    this.editForm = { nom: task.nom, description: task.description, status: task.status };
+    this.editForm = {
+      nom: task.nom,
+      description: task.description,
+      status: task.status,
+      dueDate: task.dueDate ?? null,
+    };
   }
 
   cancelEdit(): void {
@@ -155,7 +179,12 @@ export class TaskList implements OnChanges {
     }
 
     this.taskService
-      .update(task.id, { nom: task.nom, description: task.description, status: newStatus })
+      .update(task.id, {
+        nom: task.nom,
+        description: task.description,
+        status: newStatus,
+        dueDate: task.dueDate ?? null,
+      })
       .subscribe({
         next: (updated) => this.tasks.update((tasks) => tasks.map((t) => (t.id === updated.id ? updated : t))),
         error: () => this.errorMessage.set('Impossible de déplacer la tâche'),
@@ -176,10 +205,147 @@ export class TaskList implements OnChanges {
     }
 
     this.selectedTask.set(task);
+    this.loadComments(task.id);
+    this.loadAttachments(task.id);
   }
 
   closeDetail(): void {
     this.selectedTask.set(null);
+    this.comments.set([]);
+    this.attachments.set([]);
+    this.newCommentContent = '';
+    this.commentError.set(null);
+    this.attachmentError.set(null);
+  }
+
+  loadComments(taskId: number): void {
+    this.loadingComments.set(true);
+    this.commentService.getForTask(taskId).subscribe({
+      next: (comments) => {
+        this.comments.set(comments);
+        this.loadingComments.set(false);
+      },
+      error: () => {
+        this.commentError.set('Impossible de charger les commentaires');
+        this.loadingComments.set(false);
+      },
+    });
+  }
+
+  postComment(taskId: number): void {
+    if (!this.newCommentContent.trim()) {
+      return;
+    }
+
+    this.postingComment.set(true);
+    this.commentError.set(null);
+
+    this.commentService.create(taskId, this.newCommentContent).subscribe({
+      next: (comment) => {
+        this.comments.update((comments) => [...comments, comment]);
+        this.newCommentContent = '';
+        this.postingComment.set(false);
+      },
+      error: () => {
+        this.commentError.set("Impossible d'ajouter le commentaire");
+        this.postingComment.set(false);
+      },
+    });
+  }
+
+  deleteComment(taskId: number, commentId: number): void {
+    this.commentError.set(null);
+
+    this.commentService.delete(taskId, commentId).subscribe({
+      next: () => this.comments.update((comments) => comments.filter((c) => c.id !== commentId)),
+      error: () => this.commentError.set('Impossible de supprimer ce commentaire'),
+    });
+  }
+
+  isOwnComment(comment: Comment): boolean {
+    return comment.authorEmail === this.authService.currentUser()?.email;
+  }
+
+  loadAttachments(taskId: number): void {
+    this.loadingAttachments.set(true);
+    this.attachmentService.getForTask(taskId).subscribe({
+      next: (attachments) => {
+        this.attachments.set(attachments);
+        this.loadingAttachments.set(false);
+      },
+      error: () => {
+        this.attachmentError.set('Impossible de charger les pièces jointes');
+        this.loadingAttachments.set(false);
+      },
+    });
+  }
+
+  onFileSelected(event: Event, taskId: number): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    this.uploadingAttachment.set(true);
+    this.attachmentError.set(null);
+
+    this.attachmentService.upload(taskId, file).subscribe({
+      next: (attachment) => {
+        this.attachments.update((attachments) => [...attachments, attachment]);
+        this.uploadingAttachment.set(false);
+        input.value = '';
+      },
+      error: () => {
+        this.attachmentError.set("Impossible d'ajouter ce fichier (5 Mo maximum)");
+        this.uploadingAttachment.set(false);
+        input.value = '';
+      },
+    });
+  }
+
+  downloadAttachment(taskId: number, attachment: Attachment): void {
+    this.attachmentError.set(null);
+
+    this.attachmentService.download(taskId, attachment.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = attachment.filename;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => this.attachmentError.set('Impossible de télécharger ce fichier'),
+    });
+  }
+
+  deleteAttachment(taskId: number, attachmentId: number): void {
+    this.attachmentError.set(null);
+
+    this.attachmentService.delete(taskId, attachmentId).subscribe({
+      next: () => this.attachments.update((attachments) => attachments.filter((a) => a.id !== attachmentId)),
+      error: () => this.attachmentError.set('Impossible de supprimer ce fichier'),
+    });
+  }
+
+  dueDateUrgency(dueDate: string | null | undefined): DueDateUrgency | null {
+    if (!dueDate) {
+      return null;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate);
+    const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return 'overdue';
+    }
+    if (diffDays <= 2) {
+      return 'soon';
+    }
+    return null;
   }
 
   editFromDetail(task: Task): void {
@@ -199,5 +365,15 @@ export class TaskList implements OnChanges {
 
   statusLabel(status: TaskStatus): string {
     return this.statusLabels[status];
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes < 1024) {
+      return `${bytes} o`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} Ko`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
   }
 }

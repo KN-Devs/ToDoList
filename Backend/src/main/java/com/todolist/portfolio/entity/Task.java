@@ -3,6 +3,7 @@ package com.todolist.portfolio.entity;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.util.Objects;
 
 
@@ -31,6 +32,9 @@ public class Task {
     @ManyToOne
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
+
+    @Column(name = "due_date")
+    private LocalDate dueDate;
 
     public Task() {
     }
@@ -90,6 +94,14 @@ public class Task {
 
     public void setProject(Project project) {
         this.project = project;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
     }
 
     @Override
