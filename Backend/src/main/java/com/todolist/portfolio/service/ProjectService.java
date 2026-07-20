@@ -28,15 +28,18 @@ public class ProjectService {
     private final VerificationTokenRepository verificationTokenRepository;
     private final VerificationTokenService verificationTokenService;
     private final EmailService emailService;
+    private final NotificationService notificationService;
 
     public ProjectService(ProjectRepository projectRepository, UserRepository userRepository,
                            VerificationTokenRepository verificationTokenRepository,
-                           VerificationTokenService verificationTokenService, EmailService emailService) {
+                           VerificationTokenService verificationTokenService, EmailService emailService,
+                           NotificationService notificationService) {
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
         this.verificationTokenRepository = verificationTokenRepository;
         this.verificationTokenService = verificationTokenService;
         this.emailService = emailService;
+        this.notificationService = notificationService;
     }
 
     public ProjectResponse create(ProjectRequest request, User owner) {
@@ -106,6 +109,7 @@ public class ProjectService {
         VerificationToken invitationToken =
                 verificationTokenService.createToken(invitee, TokenType.PROJECT_INVITATION, project);
         emailService.sendProjectInvitation(invitee, currentUser, project, invitationToken.getToken());
+        notificationService.notifyProjectInvitation(invitee, currentUser, project);
 
         return toResponse(project);
     }
@@ -122,6 +126,7 @@ public class ProjectService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Aucune invitation en attente pour cette personne"));
 
         verificationTokenRepository.delete(invitationToken);
+        notificationService.resolveInvitationNotifications(invitee, project);
         return toResponse(project);
     }
 

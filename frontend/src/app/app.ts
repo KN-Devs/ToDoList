@@ -1,11 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AccountMenu } from './features/account/account-menu/account-menu';
+import { NotificationBell } from './features/notifications/notification-bell/notification-bell';
 import { AuthService } from './core/services/auth.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, AccountMenu],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, AccountMenu, NotificationBell],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

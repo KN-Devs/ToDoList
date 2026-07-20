@@ -19,12 +19,14 @@ public class TaskCommentService {
     private final TaskCommentRepository commentRepository;
     private final TaskService taskService;
     private final ProjectService projectService;
+    private final NotificationService notificationService;
 
     public TaskCommentService(TaskCommentRepository commentRepository, TaskService taskService,
-                               ProjectService projectService) {
+                               ProjectService projectService, NotificationService notificationService) {
         this.commentRepository = commentRepository;
         this.taskService = taskService;
         this.projectService = projectService;
+        this.notificationService = notificationService;
     }
 
     public List<CommentResponse> getForTask(Integer taskId, User currentUser) {
@@ -42,6 +44,11 @@ public class TaskCommentService {
 
         TaskComment comment = new TaskComment(task, currentUser, content, Instant.now());
         commentRepository.save(comment);
+
+        if (!task.getUser().getId().equals(currentUser.getId())) {
+            notificationService.notifyTaskComment(task.getUser(), currentUser, task);
+        }
+
         return toResponse(comment);
     }
 

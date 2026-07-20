@@ -52,6 +52,11 @@ Application de gestion de tâches et de projets en équipe, avec authentificatio
 - Commentaires sur une tâche, chacun pouvant supprimer les siens
 - Pièces jointes (5 Mo maximum par fichier), stockées en base de données pour survivre aux redéploiements
 
+**Notifications**
+- Une cloche dans l'en-tête affiche les invitations reçues, les commentaires sur ses propres tâches et les échéances proches ou dépassées
+- Le nombre de notifications non lues est actualisé automatiquement (rafraîchissement périodique, sans WebSocket) ; la liste complète se charge à l'ouverture de la cloche
+- Les notifications d'échéance sont calculées à la volée à partir de l'état actuel des tâches plutôt que stockées, pour ne jamais devenir obsolètes
+
 **Permissions et invitations**
 - Le propriétaire d'un projet invite des membres par email ; l'invitation (lien à usage unique, 24h) doit être acceptée avant que la personne n'accède au projet
 - Le propriétaire peut annuler une invitation en attente ou retirer un membre déjà présent
@@ -128,10 +133,10 @@ npx ng serve
 ## Tests
 
 ```bash
-# Backend : 137 tests (unitaires + intégration via Testcontainers)
+# Backend : 159 tests (unitaires + intégration via Testcontainers)
 cd Backend && ./mvnw test
 
-# Frontend : 157 tests (Vitest)
+# Frontend : 170 tests (Vitest)
 cd frontend && npx ng test --watch=false
 
 # End-to-end : 5 scénarios (Playwright, nécessite le backend et le frontend démarrés)

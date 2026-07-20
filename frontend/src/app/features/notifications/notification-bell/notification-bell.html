@@ -1,0 +1,40 @@
+<div class="notification-bell">
+  <button type="button" class="bell-button" (click)="togglePanel()" aria-label="Notifications">
+    🔔
+    @if (unreadCount() > 0) {
+      <span class="notification-badge">{{ unreadCount() > 9 ? '9+' : unreadCount() }}</span>
+    }
+  </button>
+
+  @if (panelOpen()) {
+    <div class="notification-backdrop" (click)="closePanel()"></div>
+
+    <div class="notification-panel" (click)="$event.stopPropagation()">
+      <div class="notification-panel-header">
+        <strong>Notifications</strong>
+        @if (notifications().length > 0) {
+          <button type="button" class="secondary" (click)="markAllRead()">Tout marquer comme lu</button>
+        }
+      </div>
+
+      @if (loading()) {
+        <p class="hint">Chargement...</p>
+      } @else if (notifications().length === 0) {
+        <p class="hint">Aucune notification.</p>
+      } @else {
+        <ul class="notification-list">
+          @for (notification of notifications(); track trackNotification(notification)) {
+            <li
+              class="notification-item"
+              [class.unread]="!notification.read"
+              (click)="openNotification(notification)"
+            >
+              <p>{{ notification.message }}</p>
+              <span class="hint">{{ notification.createdAt | date: 'short' }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  }
+</div>
