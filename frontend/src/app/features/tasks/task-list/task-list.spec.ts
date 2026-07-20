@@ -2,6 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AuthService } from '../../../core/services/auth.service';
+import { AttachmentService } from '../../../core/services/attachment.service';
+import { CommentService } from '../../../core/services/comment.service';
+import { Attachment } from '../../../core/models/attachment.model';
+import { Comment } from '../../../core/models/comment.model';
 import { Task } from '../../../core/models/task.model';
 import { TaskService } from '../../../core/services/task.service';
 import { TaskList } from './task-list';
@@ -14,6 +18,23 @@ const TASK: Task = {
   description: 'Vérifier le rendu visuel',
   status: 'TODO',
   email: 'marie@example.com',
+  dueDate: null,
+};
+
+const COMMENT: Comment = {
+  id: 1,
+  content: 'Un commentaire',
+  authorEmail: 'marie@example.com',
+  createdAt: '2026-01-01T10:00:00Z',
+};
+
+const ATTACHMENT: Attachment = {
+  id: 1,
+  filename: 'plan.pdf',
+  contentType: 'application/pdf',
+  fileSize: 2048,
+  uploadedByEmail: 'marie@example.com',
+  createdAt: '2026-01-01T10:00:00Z',
 };
 
 describe('TaskList', () => {
@@ -21,6 +42,17 @@ describe('TaskList', () => {
     getAllForProject: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+  };
+  let commentService: {
+    getForTask: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+  };
+  let attachmentService: {
+    getForTask: ReturnType<typeof vi.fn>;
+    upload: ReturnType<typeof vi.fn>;
+    download: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
   };
   let component: TaskList;
@@ -33,12 +65,25 @@ describe('TaskList', () => {
       update: vi.fn(),
       delete: vi.fn(),
     };
+    commentService = {
+      getForTask: vi.fn().mockReturnValue(of([])),
+      create: vi.fn(),
+      delete: vi.fn(),
+    };
+    attachmentService = {
+      getForTask: vi.fn().mockReturnValue(of([])),
+      upload: vi.fn(),
+      download: vi.fn(),
+      delete: vi.fn(),
+    };
 
     TestBed.configureTestingModule({
       imports: [TaskList],
       providers: [
         { provide: TaskService, useValue: taskService },
-        { provide: AuthService, useValue: { isAdmin: () => false } },
+        { provide: CommentService, useValue: commentService },
+        { provide: AttachmentService, useValue: attachmentService },
+        { provide: AuthService, useValue: { isAdmin: () => false, currentUser: () => ({ email: 'marie@example.com' }) } },
       ],
     });
 
@@ -88,7 +133,7 @@ describe('TaskList', () => {
       status: 'TODO',
     });
     expect(component.tasks()).toEqual([created]);
-    expect(component.newTask).toEqual({ nom: '', description: '', status: 'TODO' });
+    expect(component.newTask).toEqual({ nom: '', description: '', status: 'TODO', dueDate: null });
     expect(component.creating()).toBe(false);
     expect(component.activeTab()).toBe('board');
   });
@@ -111,6 +156,7 @@ describe('TaskList', () => {
       nom: TASK.nom,
       description: TASK.description,
       status: TASK.status,
+      dueDate: null,
     });
 
     component.cancelEdit();
@@ -241,6 +287,7 @@ describe('TaskList', () => {
         nom: TASK.nom,
         description: TASK.description,
         status: 'DONE',
+        dueDate: null,
       });
       expect(component.tasks()).toEqual([moved]);
     });
@@ -284,6 +331,7 @@ describe('TaskList', () => {
         nom: TASK.nom,
         description: TASK.description,
         status: 'IN_PROGRESS',
+        dueDate: null,
       });
     });
   });
@@ -338,6 +386,194 @@ describe('TaskList', () => {
       component.onEscapeKey();
 
       expect(component.selectedTask()).toBeNull();
+    });
+
+    it('openDetail() loads comments and attachments for the task', () => {
+      commentService.getForTask.mockReturnValue(of([COMMENT]));
+      attachmentService.getForTask.mockReturnValue(of([ATTACHMENT]));
+
+      component.openDetail(TASK);
+
+      expect(commentService.getForTask).toHaveBeenCalledWith(TASK.id);
+      expect(attachmentService.getForTask).toHaveBeenCalledWith(TASK.id);
+      expect(component.comments()).toEqual([COMMENT]);
+      expect(component.attachments()).toEqual([ATTACHMENT]);
+    });
+
+    it('closeDetail() clears comments, attachments and the draft comment', () => {
+      commentService.getForTask.mockReturnValue(of([COMMENT]));
+      attachmentService.getForTask.mockReturnValue(of([ATTACHMENT]));
+      component.openDetail(TASK);
+      component.newCommentContent = 'brouillon';
+
+      component.closeDetail();
+
+      expect(component.comments()).toEqual([]);
+      expect(component.attachments()).toEqual([]);
+      expect(component.newCommentContent).toBe('');
+    });
+  });
+
+  describe('comments', () => {
+    it('postComment() does nothing when the content is blank', () => {
+      component.newCommentContent = '   ';
+
+      component.postComment(TASK.id);
+
+      expect(commentService.create).not.toHaveBeenCalled();
+    });
+
+    it('postComment() appends the created comment and clears the draft', () => {
+      commentService.create.mockReturnValue(of(COMMENT));
+      component.newCommentContent = 'Un commentaire';
+
+      component.postComment(TASK.id);
+
+      expect(commentService.create).toHaveBeenCalledWith(TASK.id, 'Un commentaire');
+      expect(component.comments()).toEqual([COMMENT]);
+      expect(component.newCommentContent).toBe('');
+      expect(component.postingComment()).toBe(false);
+    });
+
+    it('postComment() surfaces an error', () => {
+      commentService.create.mockReturnValue(throwError(() => new Error('failed')));
+      component.newCommentContent = 'Un commentaire';
+
+      component.postComment(TASK.id);
+
+      expect(component.commentError()).toBe("Impossible d'ajouter le commentaire");
+      expect(component.postingComment()).toBe(false);
+    });
+
+    it('deleteComment() removes the comment from state', () => {
+      component.comments.set([COMMENT]);
+      commentService.delete.mockReturnValue(of(undefined));
+
+      component.deleteComment(TASK.id, COMMENT.id);
+
+      expect(commentService.delete).toHaveBeenCalledWith(TASK.id, COMMENT.id);
+      expect(component.comments()).toEqual([]);
+    });
+
+    it('deleteComment() surfaces an error', () => {
+      component.comments.set([COMMENT]);
+      commentService.delete.mockReturnValue(throwError(() => new Error('failed')));
+
+      component.deleteComment(TASK.id, COMMENT.id);
+
+      expect(component.commentError()).toBe('Impossible de supprimer ce commentaire');
+    });
+
+    it('isOwnComment() is true when the comment author matches the current user', () => {
+      expect(component.isOwnComment(COMMENT)).toBe(true);
+      expect(component.isOwnComment({ ...COMMENT, authorEmail: 'other@example.com' })).toBe(false);
+    });
+  });
+
+  describe('attachments', () => {
+    it('onFileSelected() uploads the chosen file and appends it to the list', () => {
+      attachmentService.upload.mockReturnValue(of(ATTACHMENT));
+      const file = new File(['contenu'], 'plan.pdf', { type: 'application/pdf' });
+      const input = document.createElement('input');
+      Object.defineProperty(input, 'files', { value: [file] });
+      const event = { target: input } as unknown as Event;
+
+      component.onFileSelected(event, TASK.id);
+
+      expect(attachmentService.upload).toHaveBeenCalledWith(TASK.id, file);
+      expect(component.attachments()).toEqual([ATTACHMENT]);
+      expect(component.uploadingAttachment()).toBe(false);
+    });
+
+    it('onFileSelected() does nothing when no file is chosen', () => {
+      const input = document.createElement('input');
+      const event = { target: input } as unknown as Event;
+
+      component.onFileSelected(event, TASK.id);
+
+      expect(attachmentService.upload).not.toHaveBeenCalled();
+    });
+
+    it('onFileSelected() surfaces an error', () => {
+      attachmentService.upload.mockReturnValue(throwError(() => new Error('failed')));
+      const file = new File(['contenu'], 'plan.pdf', { type: 'application/pdf' });
+      const input = document.createElement('input');
+      Object.defineProperty(input, 'files', { value: [file] });
+      const event = { target: input } as unknown as Event;
+
+      component.onFileSelected(event, TASK.id);
+
+      expect(component.attachmentError()).toBe("Impossible d'ajouter ce fichier (5 Mo maximum)");
+      expect(component.uploadingAttachment()).toBe(false);
+    });
+
+    it('deleteAttachment() removes the attachment from state', () => {
+      component.attachments.set([ATTACHMENT]);
+      attachmentService.delete.mockReturnValue(of(undefined));
+
+      component.deleteAttachment(TASK.id, ATTACHMENT.id);
+
+      expect(attachmentService.delete).toHaveBeenCalledWith(TASK.id, ATTACHMENT.id);
+      expect(component.attachments()).toEqual([]);
+    });
+
+    it('deleteAttachment() surfaces an error', () => {
+      component.attachments.set([ATTACHMENT]);
+      attachmentService.delete.mockReturnValue(throwError(() => new Error('failed')));
+
+      component.deleteAttachment(TASK.id, ATTACHMENT.id);
+
+      expect(component.attachmentError()).toBe('Impossible de supprimer ce fichier');
+    });
+
+    it('downloadAttachment() surfaces an error when the download fails', () => {
+      attachmentService.download.mockReturnValue(throwError(() => new Error('failed')));
+
+      component.downloadAttachment(TASK.id, ATTACHMENT);
+
+      expect(component.attachmentError()).toBe('Impossible de télécharger ce fichier');
+    });
+  });
+
+  describe('dueDateUrgency', () => {
+    it('returns null when there is no due date', () => {
+      expect(component.dueDateUrgency(null)).toBeNull();
+      expect(component.dueDateUrgency(undefined)).toBeNull();
+    });
+
+    it('returns "overdue" for a date in the past', () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      expect(component.dueDateUrgency(yesterday.toISOString().slice(0, 10))).toBe('overdue');
+    });
+
+    it('returns "soon" for a date within the next two days', () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      expect(component.dueDateUrgency(tomorrow.toISOString().slice(0, 10))).toBe('soon');
+    });
+
+    it('returns null for a date further in the future', () => {
+      const nextMonth = new Date();
+      nextMonth.setDate(nextMonth.getDate() + 30);
+
+      expect(component.dueDateUrgency(nextMonth.toISOString().slice(0, 10))).toBeNull();
+    });
+  });
+
+  describe('formatFileSize', () => {
+    it('formats bytes', () => {
+      expect(component.formatFileSize(512)).toBe('512 o');
+    });
+
+    it('formats kilobytes', () => {
+      expect(component.formatFileSize(2048)).toBe('2.0 Ko');
+    });
+
+    it('formats megabytes', () => {
+      expect(component.formatFileSize(3 * 1024 * 1024)).toBe('3.0 Mo');
     });
   });
 });

@@ -136,6 +136,40 @@ class TaskServiceTest {
     }
 
     @Test
+    void create_withDueDate_savesIt() {
+        when(projectService.findOrThrow(10)).thenReturn(bobProject);
+        LocalDate dueDate = LocalDate.of(2026, 3, 15);
+        TaskRequest request = new TaskRequest("Nouvelle tache", "desc", TaskStatus.TODO, dueDate);
+
+        TaskResponse result = taskService.create(10, request, bob);
+
+        assertThat(result.dueDate()).isEqualTo(dueDate);
+    }
+
+    @Test
+    void update_whenManageRights_updatesDueDate() {
+        when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
+        when(projectService.hasManageRights(bobProject, bob)).thenReturn(true);
+        LocalDate dueDate = LocalDate.of(2026, 3, 15);
+        TaskRequest request = new TaskRequest(bobTask.getNom(), bobTask.getDescription(), TaskStatus.TODO, dueDate);
+
+        TaskResponse result = taskService.update(10, request, bob);
+
+        assertThat(result.dueDate()).isEqualTo(dueDate);
+    }
+
+    @Test
+    void update_whenViewOnlyMemberTriesToChangeDueDate_throwsAccessDenied() {
+        when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
+        when(projectService.hasManageRights(bobProject, stranger)).thenReturn(false);
+        TaskRequest request = new TaskRequest(bobTask.getNom(), bobTask.getDescription(), TaskStatus.DONE,
+                LocalDate.of(2026, 3, 15));
+
+        assertThrows(AccessDeniedException.class, () -> taskService.update(10, request, stranger));
+        verify(taskRepository, never()).save(any());
+    }
+
+    @Test
     void update_whenViewOnlyMember_canChangeStatusOnly() {
         when(taskRepository.findById(10)).thenReturn(Optional.of(bobTask));
         when(projectService.hasManageRights(bobProject, stranger)).thenReturn(false);

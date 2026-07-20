@@ -14,10 +14,12 @@ export interface Task {
   description: string;
   status: TaskStatus;
   email: string;
+  dueDate?: string | null;
 }
 
 export interface TaskRequest {
   nom: string;
   description: string;
   status: TaskStatus;
+  dueDate?: string | null;
 }

@@ -48,6 +48,9 @@ Application de gestion de tâches et de projets en équipe, avec authentificatio
 - Les tâches appartiennent à un projet et se déplacent entre trois statuts (à faire, en cours, terminée) par glisser-déposer ou menu déroulant
 - Recherche et filtrage des tâches par statut
 - Détail d'une tâche en modale, avec édition et suppression
+- Date d'échéance optionnelle, mise en évidence sur la carte si elle est dépassée ou proche (moins de 48h)
+- Commentaires sur une tâche, chacun pouvant supprimer les siens
+- Pièces jointes (5 Mo maximum par fichier), stockées en base de données pour survivre aux redéploiements
 
 **Permissions et invitations**
 - Le propriétaire d'un projet invite des membres par email ; l'invitation (lien à usage unique, 24h) doit être acceptée avant que la personne n'accède au projet
@@ -125,10 +128,10 @@ npx ng serve
 ## Tests
 
 ```bash
-# Backend : 111 tests (unitaires + intégration via Testcontainers)
+# Backend : 137 tests (unitaires + intégration via Testcontainers)
 cd Backend && ./mvnw test
 
-# Frontend : 129 tests (Vitest)
+# Frontend : 157 tests (Vitest)
 cd frontend && npx ng test --watch=false
 
 # End-to-end : 5 scénarios (Playwright, nécessite le backend et le frontend démarrés)
