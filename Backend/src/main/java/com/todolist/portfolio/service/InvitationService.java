@@ -15,10 +15,13 @@ public class InvitationService {
 
     private final VerificationTokenService verificationTokenService;
     private final ProjectRepository projectRepository;
+    private final NotificationService notificationService;
 
-    public InvitationService(VerificationTokenService verificationTokenService, ProjectRepository projectRepository) {
+    public InvitationService(VerificationTokenService verificationTokenService, ProjectRepository projectRepository,
+                              NotificationService notificationService) {
         this.verificationTokenService = verificationTokenService;
         this.projectRepository = projectRepository;
+        this.notificationService = notificationService;
     }
 
     public InvitationAcceptResponse accept(String tokenValue) {
@@ -36,6 +39,8 @@ public class InvitationService {
             project.getMembers().add(new ProjectMember(project, token.getUser(), false));
             projectRepository.save(project);
         }
+
+        notificationService.resolveInvitationNotifications(token.getUser(), project);
 
         return new InvitationAcceptResponse(project.getId(), project.getNom());
     }

@@ -43,6 +43,9 @@ class ProjectServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private NotificationService notificationService;
+
+    @Mock
     private VerificationTokenRepository verificationTokenRepository;
 
     @Mock
@@ -144,6 +147,7 @@ class ProjectServiceTest {
 
         assertThat(result.members()).isEmpty();
         verify(emailService).sendProjectInvitation(carol, bob, bobProject, "tok-1");
+        verify(notificationService).notifyProjectInvitation(carol, bob, bobProject);
     }
 
     @Test
@@ -195,6 +199,7 @@ class ProjectServiceTest {
         projectService.cancelInvitation(10, "carol@test.com", bob);
 
         verify(verificationTokenRepository).delete(existing);
+        verify(notificationService).resolveInvitationNotifications(carol, bobProject);
     }
 
     @Test

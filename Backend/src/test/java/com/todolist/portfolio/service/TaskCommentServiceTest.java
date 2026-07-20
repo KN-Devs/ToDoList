@@ -42,6 +42,9 @@ class TaskCommentServiceTest {
     @Mock
     private ProjectService projectService;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private TaskCommentService taskCommentService;
 
@@ -86,6 +89,20 @@ class TaskCommentServiceTest {
         assertThat(result.content()).isEqualTo("Bonjour");
         assertThat(result.authorEmail()).isEqualTo("carol@test.com");
         verify(commentRepository).save(any(TaskComment.class));
+    }
+
+    @Test
+    void create_whenCommenterIsNotTaskOwner_notifiesTaskOwner() {
+        taskCommentService.create(20, "Bonjour", carol);
+
+        verify(notificationService).notifyTaskComment(bob, carol, bobTask);
+    }
+
+    @Test
+    void create_whenCommentingOnOwnTask_doesNotNotify() {
+        taskCommentService.create(20, "Bonjour", bob);
+
+        verify(notificationService, never()).notifyTaskComment(any(), any(), any());
     }
 
     @Test

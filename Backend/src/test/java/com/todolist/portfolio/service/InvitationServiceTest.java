@@ -31,6 +31,9 @@ class InvitationServiceTest {
     @Mock
     private ProjectRepository projectRepository;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private InvitationService invitationService;
 
@@ -58,6 +61,7 @@ class InvitationServiceTest {
         assertThat(response.projectNom()).isEqualTo("Projet de Bob");
         assertThat(bobProject.getMembers()).extracting(m -> m.getUser().getEmail()).containsExactly("carol@test.com");
         verify(projectRepository).save(bobProject);
+        verify(notificationService).resolveInvitationNotifications(carol, bobProject);
     }
 
     @Test
