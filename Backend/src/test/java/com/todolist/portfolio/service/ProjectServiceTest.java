@@ -5,9 +5,12 @@ import com.todolist.portfolio.dto.ProjectResponse;
 import com.todolist.portfolio.entity.Project;
 import com.todolist.portfolio.entity.ProjectMember;
 import com.todolist.portfolio.entity.Role;
+import com.todolist.portfolio.entity.TokenType;
 import com.todolist.portfolio.entity.User;
+import com.todolist.portfolio.entity.VerificationToken;
 import com.todolist.portfolio.repository.ProjectRepository;
 import com.todolist.portfolio.repository.UserRepository;
+import com.todolist.portfolio.repository.VerificationTokenRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +41,15 @@ class ProjectServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private VerificationTokenRepository verificationTokenRepository;
+
+    @Mock
+    private VerificationTokenService verificationTokenService;
+
+    @Mock
+    private EmailService emailService;
 
     @InjectMocks
     private ProjectService projectService;
@@ -120,37 +133,78 @@ class ProjectServiceTest {
     }
 
     @Test
-    void addMember_whenOwner_addsExistingUser() {
+    void inviteMember_whenOwner_createsTokenAndSendsEmail() {
         when(projectRepository.findById(10)).thenReturn(Optional.of(bobProject));
         when(userRepository.findByEmail("carol@test.com")).thenReturn(Optional.of(carol));
+        VerificationToken token = new VerificationToken("tok-1", TokenType.PROJECT_INVITATION, carol, bobProject,
+                Instant.now().plusSeconds(3600), Instant.now());
+        when(verificationTokenService.createToken(carol, TokenType.PROJECT_INVITATION, bobProject)).thenReturn(token);
 
-        ProjectResponse result = projectService.addMember(10, "carol@test.com", bob);
+        ProjectResponse result = projectService.inviteMember(10, "carol@test.com", bob);
 
-        assertThat(result.members()).extracting("email").containsExactly("carol@test.com");
+        assertThat(result.members()).isEmpty();
+        verify(emailService).sendProjectInvitation(carol, bob, bobProject, "tok-1");
     }
 
     @Test
-    void addMember_whenNotOwner_throwsAccessDenied() {
+    void inviteMember_whenNotOwner_throwsAccessDenied() {
         when(projectRepository.findById(10)).thenReturn(Optional.of(bobProject));
 
-        assertThrows(AccessDeniedException.class, () -> projectService.addMember(10, "carol@test.com", carol));
+        assertThrows(AccessDeniedException.class, () -> projectService.inviteMember(10, "carol@test.com", carol));
         verify(userRepository, never()).findByEmail(any());
     }
 
     @Test
-    void addMember_whenEmailUnknown_throwsNotFound() {
+    void inviteMember_whenEmailUnknown_throwsNotFound() {
         when(projectRepository.findById(10)).thenReturn(Optional.of(bobProject));
         when(userRepository.findByEmail("ghost@test.com")).thenReturn(Optional.empty());
 
-        assertThrows(ResponseStatusException.class, () -> projectService.addMember(10, "ghost@test.com", bob));
+        assertThrows(ResponseStatusException.class, () -> projectService.inviteMember(10, "ghost@test.com", bob));
     }
 
     @Test
-    void addMember_whenAddingOwner_throwsBadRequest() {
+    void inviteMember_whenInvitingOwner_throwsBadRequest() {
         when(projectRepository.findById(10)).thenReturn(Optional.of(bobProject));
         when(userRepository.findByEmail("bob@test.com")).thenReturn(Optional.of(bob));
 
-        assertThrows(ResponseStatusException.class, () -> projectService.addMember(10, "bob@test.com", bob));
+        assertThrows(ResponseStatusException.class, () -> projectService.inviteMember(10, "bob@test.com", bob));
+    }
+
+    @Test
+    void inviteMember_whenAlreadyInvited_throwsBadRequest() {
+        when(projectRepository.findById(10)).thenReturn(Optional.of(bobProject));
+        when(userRepository.findByEmail("carol@test.com")).thenReturn(Optional.of(carol));
+        VerificationToken existing = new VerificationToken("tok-existing", TokenType.PROJECT_INVITATION, carol,
+                bobProject, Instant.now().plusSeconds(3600), Instant.now());
+        when(verificationTokenRepository.findByProjectAndUserAndTypeAndConsumedAtIsNull(
+                bobProject, carol, TokenType.PROJECT_INVITATION)).thenReturn(Optional.of(existing));
+
+        assertThrows(ResponseStatusException.class, () -> projectService.inviteMember(10, "carol@test.com", bob));
+        verify(verificationTokenService, never()).createToken(any(), any(), any());
+    }
+
+    @Test
+    void cancelInvitation_whenOwner_deletesToken() {
+        when(projectRepository.findById(10)).thenReturn(Optional.of(bobProject));
+        when(userRepository.findByEmail("carol@test.com")).thenReturn(Optional.of(carol));
+        VerificationToken existing = new VerificationToken("tok-existing", TokenType.PROJECT_INVITATION, carol,
+                bobProject, Instant.now().plusSeconds(3600), Instant.now());
+        when(verificationTokenRepository.findByProjectAndUserAndTypeAndConsumedAtIsNull(
+                bobProject, carol, TokenType.PROJECT_INVITATION)).thenReturn(Optional.of(existing));
+
+        projectService.cancelInvitation(10, "carol@test.com", bob);
+
+        verify(verificationTokenRepository).delete(existing);
+    }
+
+    @Test
+    void cancelInvitation_whenNoPendingInvitation_throwsNotFound() {
+        when(projectRepository.findById(10)).thenReturn(Optional.of(bobProject));
+        when(userRepository.findByEmail("carol@test.com")).thenReturn(Optional.of(carol));
+        when(verificationTokenRepository.findByProjectAndUserAndTypeAndConsumedAtIsNull(
+                bobProject, carol, TokenType.PROJECT_INVITATION)).thenReturn(Optional.empty());
+
+        assertThrows(ResponseStatusException.class, () -> projectService.cancelInvitation(10, "carol@test.com", bob));
     }
 
     @Test

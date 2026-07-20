@@ -1,7 +1,9 @@
 package com.todolist.portfolio.integration;
 
-import com.todolist.portfolio.dto.AddMemberRequest;
+import com.todolist.portfolio.dto.AcceptInvitationRequest;
 import com.todolist.portfolio.dto.AuthResponse;
+import com.todolist.portfolio.dto.InvitationAcceptResponse;
+import com.todolist.portfolio.dto.InviteMemberRequest;
 import com.todolist.portfolio.dto.LoginRequest;
 import com.todolist.portfolio.dto.ProjectRequest;
 import com.todolist.portfolio.dto.ProjectResponse;
@@ -9,7 +11,13 @@ import com.todolist.portfolio.dto.RegisterRequest;
 import com.todolist.portfolio.dto.TaskRequest;
 import com.todolist.portfolio.dto.TaskResponse;
 import com.todolist.portfolio.dto.UpdateMemberPermissionRequest;
+import com.todolist.portfolio.entity.Project;
 import com.todolist.portfolio.entity.TaskStatus;
+import com.todolist.portfolio.entity.TokenType;
+import com.todolist.portfolio.entity.User;
+import com.todolist.portfolio.repository.ProjectRepository;
+import com.todolist.portfolio.repository.UserRepository;
+import com.todolist.portfolio.repository.VerificationTokenRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -42,10 +50,25 @@ class TaskIntegrationTest {
     @Autowired
     private TestRestTemplate restTemplate;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Autowired
+    private VerificationTokenRepository verificationTokenRepository;
+
     private String registerAndGetToken(String email) {
         RegisterRequest request = new RegisterRequest("Nom", "Prenom", email, "Password123!");
         ResponseEntity<AuthResponse> response = restTemplate.postForEntity("/api/auth/register", request, AuthResponse.class);
         return response.getBody().token();
+    }
+
+    private void markEmailVerified(String email) {
+        User user = userRepository.findByEmail(email).orElseThrow();
+        user.setEmailVerified(true);
+        userRepository.save(user);
     }
 
     private HttpHeaders authHeaders(String token) {
@@ -63,10 +86,28 @@ class TaskIntegrationTest {
         return createResponse.getBody().id();
     }
 
+    private void inviteAndAccept(String ownerToken, Integer projectId, String memberEmail) {
+        HttpEntity<InviteMemberRequest> inviteEntity =
+                new HttpEntity<>(new InviteMemberRequest(memberEmail), authHeaders(ownerToken));
+        restTemplate.exchange(
+                "/api/projects/" + projectId + "/invitations", HttpMethod.POST, inviteEntity, ProjectResponse.class);
+
+        Project project = projectRepository.findById(projectId).orElseThrow();
+        User member = userRepository.findByEmail(memberEmail).orElseThrow();
+        String token = verificationTokenRepository
+                .findByProjectAndUserAndTypeAndConsumedAtIsNull(project, member, TokenType.PROJECT_INVITATION)
+                .orElseThrow()
+                .getToken();
+
+        HttpEntity<AcceptInvitationRequest> acceptEntity = new HttpEntity<>(new AcceptInvitationRequest(token));
+        restTemplate.postForEntity("/api/invitations/accept", acceptEntity, InvitationAcceptResponse.class);
+    }
+
     @Test
     void register_thenLogin_returnsValidToken() {
         String email = "integration1@test.com";
         registerAndGetToken(email);
+        markEmailVerified(email);
 
         LoginRequest loginRequest = new LoginRequest(email, "Password123!");
         ResponseEntity<AuthResponse> loginResponse = restTemplate.postForEntity("/api/auth/login", loginRequest, AuthResponse.class);
@@ -99,6 +140,7 @@ class TaskIntegrationTest {
     @Test
     void login_withDifferentCaseEmail_succeeds() {
         registerAndGetToken("integration-case@test.com");
+        markEmailVerified("integration-case@test.com");
 
         LoginRequest loginRequest = new LoginRequest("Integration-Case@Test.COM", "Password123!");
         ResponseEntity<AuthResponse> response = restTemplate.postForEntity("/api/auth/login", loginRequest, AuthResponse.class);
@@ -167,9 +209,7 @@ class TaskIntegrationTest {
         String memberToken = registerAndGetToken("integration5-member@test.com");
         Integer projectId = createProject(ownerToken);
 
-        HttpEntity<AddMemberRequest> addMemberEntity =
-                new HttpEntity<>(new AddMemberRequest("integration5-member@test.com"), authHeaders(ownerToken));
-        restTemplate.exchange("/api/projects/" + projectId + "/members", HttpMethod.POST, addMemberEntity, ProjectResponse.class);
+        inviteAndAccept(ownerToken, projectId, "integration5-member@test.com");
 
         TaskRequest taskRequest = new TaskRequest("Tache", "description", TaskStatus.TODO);
         HttpEntity<TaskRequest> createEntity = new HttpEntity<>(taskRequest, authHeaders(memberToken));
@@ -189,9 +229,7 @@ class TaskIntegrationTest {
         String memberToken = registerAndGetToken("integration7-member@test.com");
         Integer projectId = createProject(ownerToken);
 
-        HttpEntity<AddMemberRequest> addMemberEntity =
-                new HttpEntity<>(new AddMemberRequest("integration7-member@test.com"), authHeaders(ownerToken));
-        restTemplate.exchange("/api/projects/" + projectId + "/members", HttpMethod.POST, addMemberEntity, ProjectResponse.class);
+        inviteAndAccept(ownerToken, projectId, "integration7-member@test.com");
 
         TaskRequest taskRequest = new TaskRequest("Tache", "description", TaskStatus.TODO);
         HttpEntity<TaskRequest> createEntity = new HttpEntity<>(taskRequest, authHeaders(ownerToken));
@@ -219,9 +257,7 @@ class TaskIntegrationTest {
         String memberToken = registerAndGetToken("integration6-member@test.com");
         Integer projectId = createProject(ownerToken);
 
-        HttpEntity<AddMemberRequest> addMemberEntity =
-                new HttpEntity<>(new AddMemberRequest("integration6-member@test.com"), authHeaders(ownerToken));
-        restTemplate.exchange("/api/projects/" + projectId + "/members", HttpMethod.POST, addMemberEntity, ProjectResponse.class);
+        inviteAndAccept(ownerToken, projectId, "integration6-member@test.com");
 
         HttpEntity<UpdateMemberPermissionRequest> grantEntity =
                 new HttpEntity<>(new UpdateMemberPermissionRequest(true), authHeaders(ownerToken));

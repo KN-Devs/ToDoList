@@ -1,10 +1,18 @@
 package com.todolist.portfolio.integration;
 
-import com.todolist.portfolio.dto.AddMemberRequest;
+import com.todolist.portfolio.dto.AcceptInvitationRequest;
 import com.todolist.portfolio.dto.AuthResponse;
+import com.todolist.portfolio.dto.InvitationAcceptResponse;
+import com.todolist.portfolio.dto.InviteMemberRequest;
 import com.todolist.portfolio.dto.ProjectRequest;
 import com.todolist.portfolio.dto.ProjectResponse;
 import com.todolist.portfolio.dto.RegisterRequest;
+import com.todolist.portfolio.entity.Project;
+import com.todolist.portfolio.entity.TokenType;
+import com.todolist.portfolio.entity.User;
+import com.todolist.portfolio.repository.ProjectRepository;
+import com.todolist.portfolio.repository.UserRepository;
+import com.todolist.portfolio.repository.VerificationTokenRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -37,6 +45,15 @@ class ProjectIntegrationTest {
     @Autowired
     private TestRestTemplate restTemplate;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Autowired
+    private VerificationTokenRepository verificationTokenRepository;
+
     private String registerAndGetToken(String email) {
         RegisterRequest request = new RegisterRequest("Nom", "Prenom", email, "Password123!");
         ResponseEntity<AuthResponse> response = restTemplate.postForEntity("/api/auth/register", request, AuthResponse.class);
@@ -52,6 +69,23 @@ class ProjectIntegrationTest {
     private ProjectRequest sampleProject() {
         return new ProjectRequest("Refonte du site", "Migration vers Angular",
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 6, 30));
+    }
+
+    private void inviteAndAccept(String ownerToken, Integer projectId, String memberEmail) {
+        HttpEntity<InviteMemberRequest> inviteEntity =
+                new HttpEntity<>(new InviteMemberRequest(memberEmail), authHeaders(ownerToken));
+        restTemplate.exchange(
+                "/api/projects/" + projectId + "/invitations", HttpMethod.POST, inviteEntity, ProjectResponse.class);
+
+        Project project = projectRepository.findById(projectId).orElseThrow();
+        User member = userRepository.findByEmail(memberEmail).orElseThrow();
+        String token = verificationTokenRepository
+                .findByProjectAndUserAndTypeAndConsumedAtIsNull(project, member, TokenType.PROJECT_INVITATION)
+                .orElseThrow()
+                .getToken();
+
+        HttpEntity<AcceptInvitationRequest> acceptEntity = new HttpEntity<>(new AcceptInvitationRequest(token));
+        restTemplate.postForEntity("/api/invitations/accept", acceptEntity, InvitationAcceptResponse.class);
     }
 
     @Test
@@ -73,32 +107,80 @@ class ProjectIntegrationTest {
     }
 
     @Test
-    void addMember_thenMemberSeesProject() {
+    void inviteMember_createsPendingInvitation_notYetAMember() {
         String ownerToken = registerAndGetToken("project2-owner@test.com");
-        String memberToken = registerAndGetToken("project2-member@test.com");
+        registerAndGetToken("project2-member@test.com");
 
         HttpEntity<ProjectRequest> createEntity = new HttpEntity<>(sampleProject(), authHeaders(ownerToken));
         ResponseEntity<ProjectResponse> createResponse =
                 restTemplate.postForEntity("/api/projects", createEntity, ProjectResponse.class);
         Integer projectId = createResponse.getBody().id();
 
-        HttpEntity<AddMemberRequest> addMemberEntity =
-                new HttpEntity<>(new AddMemberRequest("project2-member@test.com"), authHeaders(ownerToken));
-        ResponseEntity<ProjectResponse> addMemberResponse = restTemplate.exchange(
-                "/api/projects/" + projectId + "/members", HttpMethod.POST, addMemberEntity, ProjectResponse.class);
+        HttpEntity<InviteMemberRequest> inviteEntity =
+                new HttpEntity<>(new InviteMemberRequest("project2-member@test.com"), authHeaders(ownerToken));
+        ResponseEntity<ProjectResponse> inviteResponse = restTemplate.exchange(
+                "/api/projects/" + projectId + "/invitations", HttpMethod.POST, inviteEntity, ProjectResponse.class);
 
-        assertThat(addMemberResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(addMemberResponse.getBody().members()).extracting("email").containsExactly("project2-member@test.com");
+        assertThat(inviteResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(inviteResponse.getBody().members()).isEmpty();
+        assertThat(inviteResponse.getBody().pendingInvitations()).containsExactly("project2-member@test.com");
+    }
+
+    @Test
+    void acceptInvitation_addsMemberAndAllowsAccess() {
+        String ownerToken = registerAndGetToken("project2c-owner@test.com");
+        String memberToken = registerAndGetToken("project2c-member@test.com");
+
+        HttpEntity<ProjectRequest> createEntity = new HttpEntity<>(sampleProject(), authHeaders(ownerToken));
+        ResponseEntity<ProjectResponse> createResponse =
+                restTemplate.postForEntity("/api/projects", createEntity, ProjectResponse.class);
+        Integer projectId = createResponse.getBody().id();
+
+        inviteAndAccept(ownerToken, projectId, "project2c-member@test.com");
 
         HttpEntity<Void> getEntity = new HttpEntity<>(authHeaders(memberToken));
         ResponseEntity<ProjectResponse> memberViewResponse = restTemplate.exchange(
                 "/api/projects/" + projectId, HttpMethod.GET, getEntity, ProjectResponse.class);
 
         assertThat(memberViewResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(memberViewResponse.getBody().members()).extracting("email").containsExactly("project2c-member@test.com");
+        assertThat(memberViewResponse.getBody().pendingInvitations()).isEmpty();
     }
 
     @Test
-    void addMember_withDifferentCaseEmail_findsExistingUser() {
+    void acceptInvitation_withAlreadyConsumedToken_returns410() {
+        String ownerToken = registerAndGetToken("project2d-owner@test.com");
+        registerAndGetToken("project2d-member@test.com");
+
+        HttpEntity<ProjectRequest> createEntity = new HttpEntity<>(sampleProject(), authHeaders(ownerToken));
+        ResponseEntity<ProjectResponse> createResponse =
+                restTemplate.postForEntity("/api/projects", createEntity, ProjectResponse.class);
+        Integer projectId = createResponse.getBody().id();
+
+        HttpEntity<InviteMemberRequest> inviteEntity =
+                new HttpEntity<>(new InviteMemberRequest("project2d-member@test.com"), authHeaders(ownerToken));
+        restTemplate.exchange(
+                "/api/projects/" + projectId + "/invitations", HttpMethod.POST, inviteEntity, ProjectResponse.class);
+
+        Project project = projectRepository.findById(projectId).orElseThrow();
+        User member = userRepository.findByEmail("project2d-member@test.com").orElseThrow();
+        String token = verificationTokenRepository
+                .findByProjectAndUserAndTypeAndConsumedAtIsNull(project, member, TokenType.PROJECT_INVITATION)
+                .orElseThrow()
+                .getToken();
+
+        HttpEntity<AcceptInvitationRequest> acceptEntity = new HttpEntity<>(new AcceptInvitationRequest(token));
+        ResponseEntity<InvitationAcceptResponse> firstAccept =
+                restTemplate.postForEntity("/api/invitations/accept", acceptEntity, InvitationAcceptResponse.class);
+        assertThat(firstAccept.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        ResponseEntity<String> secondAccept =
+                restTemplate.postForEntity("/api/invitations/accept", acceptEntity, String.class);
+        assertThat(secondAccept.getStatusCode()).isEqualTo(HttpStatus.GONE);
+    }
+
+    @Test
+    void inviteMember_withDifferentCaseEmail_findsExistingUser() {
         String ownerToken = registerAndGetToken("project2b-owner@test.com");
         registerAndGetToken("project2b-member@test.com");
 
@@ -107,17 +189,17 @@ class ProjectIntegrationTest {
                 restTemplate.postForEntity("/api/projects", createEntity, ProjectResponse.class);
         Integer projectId = createResponse.getBody().id();
 
-        HttpEntity<AddMemberRequest> addMemberEntity =
-                new HttpEntity<>(new AddMemberRequest("Project2b-Member@Test.com"), authHeaders(ownerToken));
-        ResponseEntity<ProjectResponse> addMemberResponse = restTemplate.exchange(
-                "/api/projects/" + projectId + "/members", HttpMethod.POST, addMemberEntity, ProjectResponse.class);
+        HttpEntity<InviteMemberRequest> inviteEntity =
+                new HttpEntity<>(new InviteMemberRequest("Project2b-Member@Test.com"), authHeaders(ownerToken));
+        ResponseEntity<ProjectResponse> inviteResponse = restTemplate.exchange(
+                "/api/projects/" + projectId + "/invitations", HttpMethod.POST, inviteEntity, ProjectResponse.class);
 
-        assertThat(addMemberResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(addMemberResponse.getBody().members()).extracting("email").containsExactly("project2b-member@test.com");
+        assertThat(inviteResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(inviteResponse.getBody().pendingInvitations()).containsExactly("project2b-member@test.com");
     }
 
     @Test
-    void addMember_whenNotOwner_returns403() {
+    void inviteMember_whenNotOwner_returns403() {
         String ownerToken = registerAndGetToken("project3-owner@test.com");
         String strangerToken = registerAndGetToken("project3-stranger@test.com");
         registerAndGetToken("project3-target@test.com");
@@ -127,12 +209,36 @@ class ProjectIntegrationTest {
                 restTemplate.postForEntity("/api/projects", createEntity, ProjectResponse.class);
         Integer projectId = createResponse.getBody().id();
 
-        HttpEntity<AddMemberRequest> addMemberEntity =
-                new HttpEntity<>(new AddMemberRequest("project3-target@test.com"), authHeaders(strangerToken));
+        HttpEntity<InviteMemberRequest> inviteEntity =
+                new HttpEntity<>(new InviteMemberRequest("project3-target@test.com"), authHeaders(strangerToken));
         ResponseEntity<String> response = restTemplate.exchange(
-                "/api/projects/" + projectId + "/members", HttpMethod.POST, addMemberEntity, String.class);
+                "/api/projects/" + projectId + "/invitations", HttpMethod.POST, inviteEntity, String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void cancelInvitation_whenOwner_removesPendingInvitation() {
+        String ownerToken = registerAndGetToken("project3b-owner@test.com");
+        registerAndGetToken("project3b-target@test.com");
+
+        HttpEntity<ProjectRequest> createEntity = new HttpEntity<>(sampleProject(), authHeaders(ownerToken));
+        ResponseEntity<ProjectResponse> createResponse =
+                restTemplate.postForEntity("/api/projects", createEntity, ProjectResponse.class);
+        Integer projectId = createResponse.getBody().id();
+
+        HttpEntity<InviteMemberRequest> inviteEntity =
+                new HttpEntity<>(new InviteMemberRequest("project3b-target@test.com"), authHeaders(ownerToken));
+        restTemplate.exchange(
+                "/api/projects/" + projectId + "/invitations", HttpMethod.POST, inviteEntity, ProjectResponse.class);
+
+        HttpEntity<Void> cancelEntity = new HttpEntity<>(authHeaders(ownerToken));
+        ResponseEntity<ProjectResponse> cancelResponse = restTemplate.exchange(
+                "/api/projects/" + projectId + "/invitations/project3b-target@test.com",
+                HttpMethod.DELETE, cancelEntity, ProjectResponse.class);
+
+        assertThat(cancelResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(cancelResponse.getBody().pendingInvitations()).isEmpty();
     }
 
     @Test

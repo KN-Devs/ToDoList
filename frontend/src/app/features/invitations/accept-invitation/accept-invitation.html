@@ -1,0 +1,20 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <h1>Invitation au projet</h1>
+
+    @if (loading()) {
+      <p class="hint">Vérification de l'invitation...</p>
+    } @else if (projectNom()) {
+      <p class="modal-description">Tu as rejoint le projet "{{ projectNom() }}".</p>
+      @if (authService.isAuthenticated()) {
+        <button type="button" (click)="goToProject()">Voir le projet</button>
+      } @else {
+        <p class="hint">Connecte-toi pour accéder au projet.</p>
+        <button type="button" routerLink="/login">Se connecter</button>
+      }
+    } @else {
+      <p class="error">{{ errorMessage() }}</p>
+      <button type="button" class="secondary" routerLink="/projects">Retour</button>
+    }
+  </div>
+</div>

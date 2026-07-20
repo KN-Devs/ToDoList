@@ -111,4 +111,37 @@ describe('AuthService', () => {
 
     expect(service.currentUser()).toEqual(USER);
   });
+
+  it('confirmEmail() posts the token', () => {
+    service.confirmEmail('some-token').subscribe();
+
+    const req = httpMock.expectOne(`${API_BASE_URL}/auth/confirm-email`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ token: 'some-token' });
+    req.flush(null);
+  });
+
+  it('resendConfirmation() posts the email', () => {
+    service.resendConfirmation('marie@example.com').subscribe();
+
+    const req = httpMock.expectOne(`${API_BASE_URL}/auth/resend-confirmation`);
+    expect(req.request.body).toEqual({ email: 'marie@example.com' });
+    req.flush(null);
+  });
+
+  it('forgotPassword() posts the email', () => {
+    service.forgotPassword('marie@example.com').subscribe();
+
+    const req = httpMock.expectOne(`${API_BASE_URL}/auth/forgot-password`);
+    expect(req.request.body).toEqual({ email: 'marie@example.com' });
+    req.flush(null);
+  });
+
+  it('resetPassword() posts the token and new password', () => {
+    service.resetPassword('some-token', 'NewPassword123!').subscribe();
+
+    const req = httpMock.expectOne(`${API_BASE_URL}/auth/reset-password`);
+    expect(req.request.body).toEqual({ token: 'some-token', newPassword: 'NewPassword123!' });
+    req.flush(null);
+  });
 });

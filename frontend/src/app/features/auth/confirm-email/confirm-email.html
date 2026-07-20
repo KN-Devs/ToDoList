@@ -1,0 +1,15 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <h1>Confirmation de l'email</h1>
+
+    @if (loading()) {
+      <p class="hint">Vérification en cours...</p>
+    } @else if (success()) {
+      <p class="modal-description">Ton adresse email a bien été confirmée.</p>
+      <button type="button" routerLink="/login">Se connecter</button>
+    } @else {
+      <p class="error">{{ errorMessage() }}</p>
+      <button type="button" class="secondary" routerLink="/login">Retour à la connexion</button>
+    }
+  </div>
+</div>

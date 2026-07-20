@@ -33,7 +33,7 @@ describe('Register', () => {
     expect(register).not.toHaveBeenCalled();
   });
 
-  it('navigates to /tasks on successful registration', () => {
+  it('shows the confirmation message on successful registration', () => {
     register.mockReturnValue(
       of({ id: 1, nom: 'Dupont', prenom: 'Marie', email: 'marie@example.com', role: 'USER' })
     );
@@ -50,7 +50,14 @@ describe('Register', () => {
       email: 'marie@example.com',
       password: 'password123',
     });
-    expect(navigate).toHaveBeenCalledWith(['/tasks']);
+    expect(component.registered()).toBe(true);
+    expect(component.loading()).toBe(false);
+  });
+
+  it('continue() navigates to /projects', () => {
+    component.continue();
+
+    expect(navigate).toHaveBeenCalledWith(['/projects']);
   });
 
   it('shows an error message when registration fails', () => {
@@ -66,6 +73,6 @@ describe('Register', () => {
       "Impossible de créer le compte, vérifie les informations saisies"
     );
     expect(component.loading()).toBe(false);
-    expect(navigate).not.toHaveBeenCalled();
+    expect(component.registered()).toBe(false);
   });
 });

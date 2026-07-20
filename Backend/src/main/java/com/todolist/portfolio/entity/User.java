@@ -47,6 +47,9 @@ public class User  implements UserDetails {
     @Column(name = "lockout_stage", nullable = false)
     private int lockoutStage = 0;
 
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = true;
+
     public User() {
     }
 
@@ -129,6 +132,14 @@ public class User  implements UserDetails {
 
     public void setLockoutStage(int lockoutStage) {
         this.lockoutStage = lockoutStage;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
     }
 
     @Override

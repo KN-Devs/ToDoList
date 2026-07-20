@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { findPendingProjectInvitationToken } from './db';
 import { register, uniqueUser } from './helpers';
 
 test.describe('Permissions membre de projet', () => {
@@ -26,21 +27,26 @@ test.describe('Permissions membre de projet', () => {
       await ownerPage.locator('.project-card').click();
       await ownerPage.waitForURL(/\/projects\/\d+/);
 
-      const projectUrl = ownerPage.url();
-
       await ownerPage.getByRole('tab', { name: 'Créer une tâche' }).click();
       await ownerPage.fill('form.task-form input[name="nom"]', 'Tâche partagée');
       await ownerPage.fill('form.task-form textarea[name="description"]', 'Visible par le membre');
       await ownerPage.click('form.task-form button[type="submit"]');
       await expect(ownerPage.locator('.task-card')).toBeVisible();
 
-      // Le propriétaire ajoute le membre
+      // Le propriétaire invite le membre : l'invitation reste en attente tant
+      // qu'elle n'est pas acceptée, elle n'ajoute pas directement le membre
       await ownerPage.fill('input[name="newMemberEmail"]', member.email);
       await ownerPage.click('form.add-member-form button[type="submit"]');
       await expect(ownerPage.locator('.member-list li')).toContainText(member.email);
+      await expect(ownerPage.locator('.member-list li').getByRole('button', { name: 'Annuler' })).toBeVisible();
 
-      // Le membre ouvre le projet : accès en lecture seule
-      await memberPage.goto(projectUrl);
+      // Le membre accepte l'invitation reçue par email (récupérée en base,
+      // l'envoi d'email étant désactivé dans cet environnement de test)
+      const invitationToken = await findPendingProjectInvitationToken(member.email);
+      await memberPage.goto(`/invitations/accept?token=${invitationToken}`);
+      await memberPage.getByRole('button', { name: 'Voir le projet' }).click();
+
+      // Le membre est maintenant sur le projet : accès en lecture seule
       await expect(memberPage.locator('h1')).toHaveText('Projet Permissions E2E');
       await expect(memberPage.getByRole('tab', { name: 'Créer une tâche' })).toHaveCount(0);
       await expect(memberPage.locator('.project-card-actions')).toHaveCount(0);
@@ -53,6 +59,11 @@ test.describe('Permissions membre de projet', () => {
       // Mais peut changer le statut
       await memberTaskCard.locator('.status-select').selectOption('IN_PROGRESS');
       await expect(memberTaskCard.locator('.status-select')).toHaveValue('IN_PROGRESS');
+
+      // Le propriétaire recharge sa page pour voir le membre désormais accepté
+      // (l'acceptation a eu lieu dans le contexte de navigateur du membre)
+      await ownerPage.reload();
+      await expect(ownerPage.locator('.member-list li')).toContainText(member.email);
 
       // Le propriétaire accorde le droit de gérer les tâches (on attend la vraie réponse
       // du PATCH : cocher la case ne garantit pas que l'appel a réussi côté serveur)

@@ -53,10 +53,24 @@
       </ul>
     }
 
+    @if (isOwner() && project.pendingInvitations.length > 0) {
+      <h3>Invitations en attente</h3>
+      <ul class="member-list">
+        @for (email of project.pendingInvitations; track email) {
+          <li>
+            <span>{{ email }}</span>
+            <button type="button" class="secondary" (click)="cancelInvitation(project, email)">
+              Annuler
+            </button>
+          </li>
+        }
+      </ul>
+    }
+
     @if (isOwner()) {
-      <form class="add-member-form" (ngSubmit)="addMember(project)">
+      <form class="add-member-form" (ngSubmit)="inviteMember(project)">
         <label>
-          Ajouter une personne par email
+          Inviter une personne par email
           <input
             type="email"
             name="newMemberEmail"
@@ -68,7 +82,7 @@
           <p class="error">{{ memberError() }}</p>
         }
         <button type="submit" [disabled]="addingMember()">
-          {{ addingMember() ? 'Ajout...' : 'Ajouter' }}
+          {{ addingMember() ? 'Envoi...' : "Envoyer l'invitation" }}
         </button>
       </form>
     }

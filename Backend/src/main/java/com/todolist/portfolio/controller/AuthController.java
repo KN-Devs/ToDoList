@@ -2,14 +2,21 @@ package com.todolist.portfolio.controller;
 
 import com.todolist.portfolio.dto.AdminResetPasswordRequest;
 import com.todolist.portfolio.dto.AuthResponse;
+import com.todolist.portfolio.dto.ConfirmEmailRequest;
+import com.todolist.portfolio.dto.EmailOnlyRequest;
 import com.todolist.portfolio.dto.LoginRequest;
 import com.todolist.portfolio.dto.RegisterRequest;
+import com.todolist.portfolio.dto.ResetPasswordRequest;
 import com.todolist.portfolio.dto.UpdateProfileRequest;
 import com.todolist.portfolio.entity.Role;
+import com.todolist.portfolio.entity.TokenType;
 import com.todolist.portfolio.entity.User;
+import com.todolist.portfolio.entity.VerificationToken;
 import com.todolist.portfolio.repository.UserRepository;
+import com.todolist.portfolio.service.EmailService;
 import com.todolist.portfolio.service.JwtService;
 import com.todolist.portfolio.service.LoginAttemptService;
+import com.todolist.portfolio.service.VerificationTokenService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -43,15 +50,20 @@ public class AuthController {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final LoginAttemptService loginAttemptService;
+    private final VerificationTokenService verificationTokenService;
+    private final EmailService emailService;
 
     public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder,
                            JwtService jwtService, AuthenticationManager authenticationManager,
-                           LoginAttemptService loginAttemptService) {
+                           LoginAttemptService loginAttemptService,
+                           VerificationTokenService verificationTokenService, EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
         this.loginAttemptService = loginAttemptService;
+        this.verificationTokenService = verificationTokenService;
+        this.emailService = emailService;
     }
 
     @SecurityRequirements
@@ -71,8 +83,12 @@ public class AuthController {
                 passwordEncoder.encode(request.getPassword()),
                 Role.USER
         );
+        user.setEmailVerified(false);
 
         userRepository.save(user);
+
+        VerificationToken confirmationToken = verificationTokenService.createToken(user, TokenType.EMAIL_VERIFICATION);
+        emailService.sendEmailConfirmation(user, confirmationToken.getToken());
 
         String token = jwtService.generateToken(user);
 
@@ -95,6 +111,12 @@ public class AuthController {
             );
 
             User authenticatedUser = (User) authentication.getPrincipal();
+
+            if (!authenticatedUser.isEmailVerified()) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Veuillez confirmer votre adresse email avant de vous connecter. Vérifiez votre boîte de réception.");
+            }
+
             loginAttemptService.onSuccessfulLogin(authenticatedUser);
 
             String token = jwtService.generateToken(authenticatedUser);
@@ -105,6 +127,45 @@ public class AuthController {
             }
             throw ex;
         }
+    }
+
+    @SecurityRequirements
+    @PostMapping("/confirm-email")
+    public void confirmEmail(@Valid @RequestBody ConfirmEmailRequest request) {
+        VerificationToken token = verificationTokenService.consumeToken(request.token(), TokenType.EMAIL_VERIFICATION);
+
+        User user = token.getUser();
+        user.setEmailVerified(true);
+        userRepository.save(user);
+    }
+
+    @SecurityRequirements
+    @PostMapping("/resend-confirmation")
+    public void resendConfirmation(@Valid @RequestBody EmailOnlyRequest request) {
+        userRepository.findByEmail(request.email().toLowerCase())
+                .filter(user -> !user.isEmailVerified())
+                .ifPresent(user -> {
+                    VerificationToken token = verificationTokenService.createToken(user, TokenType.EMAIL_VERIFICATION);
+                    emailService.sendEmailConfirmation(user, token.getToken());
+                });
+    }
+
+    @SecurityRequirements
+    @PostMapping("/forgot-password")
+    public void forgotPassword(@Valid @RequestBody EmailOnlyRequest request) {
+        userRepository.findByEmail(request.email().toLowerCase())
+                .ifPresent(user -> {
+                    VerificationToken token = verificationTokenService.createToken(user, TokenType.PASSWORD_RESET);
+                    emailService.sendPasswordReset(user, token.getToken());
+                });
+    }
+
+    @SecurityRequirements
+    @PostMapping("/reset-password")
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        VerificationToken token = verificationTokenService.consumeToken(request.getToken(), TokenType.PASSWORD_RESET);
+
+        loginAttemptService.adminResetPassword(token.getUser(), passwordEncoder.encode(request.getNewPassword()));
     }
 
     @GetMapping("/me")

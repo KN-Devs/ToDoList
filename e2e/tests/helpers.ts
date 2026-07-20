@@ -1,4 +1,5 @@
 import { Page, expect } from '@playwright/test';
+import { findPendingEmailVerificationToken } from './db';
 
 export interface TestUser {
   nom: string;
@@ -24,6 +25,10 @@ export async function register(page: Page, user: TestUser): Promise<void> {
   await page.fill('input[name="email"]', user.email);
   await page.fill('input[name="password"]', user.password);
   await page.click('button[type="submit"]');
+
+  // L'inscription n'enchaîne plus automatiquement : elle affiche un message
+  // invitant à confirmer l'email avant de continuer vers l'application.
+  await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page).toHaveURL(/\/projects/);
 }
 
@@ -37,4 +42,10 @@ export async function login(page: Page, user: Pick<TestUser, 'email' | 'password
 
 export async function logout(page: Page): Promise<void> {
   await page.evaluate(() => localStorage.clear());
+}
+
+export async function confirmEmail(page: Page, email: string): Promise<void> {
+  const token = await findPendingEmailVerificationToken(email);
+  await page.goto(`/confirm-email?token=${token}`);
+  await expect(page.locator('.modal-description')).toHaveText('Ton adresse email a bien été confirmée.');
 }

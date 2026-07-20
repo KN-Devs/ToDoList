@@ -10,7 +10,8 @@ Le backend et le frontend ont chacun besoin de connaître l'URL de l'autre, mais
 2. Dans le dashboard, choisir **New > Blueprint** et sélectionner ce dépôt. Render détecte `render.yaml` et propose de créer les trois ressources (`todolist-db`, `todolist-backend`, `todolist-frontend`).
 3. Avant de valider, Render demande une valeur pour les variables marquées `sync: false` :
    - `JWT_SECRET` sur `todolist-backend` : générer une valeur avec `openssl rand -base64 64` et la coller telle quelle.
-   - `CORS_ALLOWED_ORIGINS` sur `todolist-backend` : laisser vide pour l'instant, on la renseignera après le premier déploiement.
+   - `CORS_ALLOWED_ORIGINS` et `FRONTEND_URL` sur `todolist-backend` : laisser vide pour l'instant, on les renseignera après le premier déploiement.
+   - `MAIL_USERNAME` / `MAIL_PASSWORD` / `MAIL_FROM` sur `todolist-backend` : une adresse Gmail et un mot de passe d'application dédié (https://myaccount.google.com/apppasswords), jamais le mot de passe du compte Google. `MAIL_FROM` peut reprendre la même adresse que `MAIL_USERNAME`.
    - `API_BASE_URL` sur `todolist-frontend` : laisser vide également.
 4. Valider. Render construit et déploie les trois ressources. Le frontend échouera à contacter le backend et le backend refusera les requêtes cross-origin du frontend — c'est attendu à ce stade.
 5. Noter les deux URLs attribuées par Render (visibles sur la page de chaque service), par exemple :
@@ -22,6 +23,7 @@ Le backend et le frontend ont chacun besoin de connaître l'URL de l'autre, mais
 1. Sur `todolist-backend`, onglet **Environment**, renseigner :
    ```
    CORS_ALLOWED_ORIGINS=https://todolist-frontend-xxxx.onrender.com
+   FRONTEND_URL=https://todolist-frontend-xxxx.onrender.com
    ```
 2. Sur `todolist-frontend`, onglet **Environment**, renseigner :
    ```

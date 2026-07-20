@@ -16,6 +16,7 @@ const PROJECT: Project = {
   endDate: '2026-06-30',
   ownerEmail: 'marie@example.com',
   members: [{ email: 'carol@example.com', canManageTasks: false }],
+  pendingInvitations: [],
 };
 
 describe('ProjectDetail', () => {
@@ -23,7 +24,8 @@ describe('ProjectDetail', () => {
     getById: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
-    addMember: ReturnType<typeof vi.fn>;
+    inviteMember: ReturnType<typeof vi.fn>;
+    cancelInvitation: ReturnType<typeof vi.fn>;
     removeMember: ReturnType<typeof vi.fn>;
     updateMemberPermission: ReturnType<typeof vi.fn>;
   };
@@ -38,7 +40,8 @@ describe('ProjectDetail', () => {
       getById: vi.fn().mockReturnValue(of(PROJECT)),
       update: vi.fn(),
       delete: vi.fn(),
-      addMember: vi.fn(),
+      inviteMember: vi.fn(),
+      cancelInvitation: vi.fn(),
       removeMember: vi.fn(),
       updateMemberPermission: vi.fn(),
     };
@@ -165,38 +168,49 @@ describe('ProjectDetail', () => {
     confirmSpy.mockRestore();
   });
 
-  describe('addMember', () => {
+  describe('inviteMember', () => {
     it('does nothing when the email is empty', () => {
       component.newMemberEmail = '';
 
-      component.addMember(PROJECT);
+      component.inviteMember(PROJECT);
 
-      expect(projectService.addMember).not.toHaveBeenCalled();
+      expect(projectService.inviteMember).not.toHaveBeenCalled();
     });
 
-    it('adds the member and updates the project', () => {
+    it('sends the invitation and updates the project', () => {
       component.newMemberEmail = 'dan@example.com';
       const updated: Project = {
         ...PROJECT,
-        members: [...PROJECT.members, { email: 'dan@example.com', canManageTasks: false }],
+        pendingInvitations: ['dan@example.com'],
       };
-      projectService.addMember.mockReturnValue(of(updated));
+      projectService.inviteMember.mockReturnValue(of(updated));
 
-      component.addMember(PROJECT);
+      component.inviteMember(PROJECT);
 
-      expect(projectService.addMember).toHaveBeenCalledWith(PROJECT.id, 'dan@example.com');
+      expect(projectService.inviteMember).toHaveBeenCalledWith(PROJECT.id, 'dan@example.com');
       expect(component.project()).toEqual(updated);
       expect(component.newMemberEmail).toBe('');
     });
 
     it('shows a not-found message on a 404 error', () => {
       component.newMemberEmail = 'ghost@example.com';
-      projectService.addMember.mockReturnValue(throwError(() => ({ status: 404 })));
+      projectService.inviteMember.mockReturnValue(throwError(() => ({ status: 404 })));
 
-      component.addMember(PROJECT);
+      component.inviteMember(PROJECT);
 
       expect(component.memberError()).toBe('Aucun utilisateur avec cet email');
     });
+  });
+
+  it('cancelInvitation() updates the project', () => {
+    const withPending: Project = { ...PROJECT, pendingInvitations: ['dan@example.com'] };
+    const updated: Project = { ...PROJECT, pendingInvitations: [] };
+    projectService.cancelInvitation.mockReturnValue(of(updated));
+
+    component.cancelInvitation(withPending, 'dan@example.com');
+
+    expect(projectService.cancelInvitation).toHaveBeenCalledWith(PROJECT.id, 'dan@example.com');
+    expect(component.project()).toEqual(updated);
   });
 
   it('removeMember() updates the project', () => {

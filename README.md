@@ -37,6 +37,8 @@ Application de gestion de tâches et de projets en équipe, avec authentificatio
 **Comptes et authentification**
 - Inscription et connexion par JWT, mots de passe hachés avec BCrypt
 - Politique de mot de passe (longueur minimale, majuscule, chiffre, caractère spécial)
+- Confirmation de l'adresse email par lien à usage unique (24h) ; la connexion est bloquée tant que l'email n'est pas confirmé
+- Mot de passe oublié : réinitialisation par lien à usage unique (24h)
 - Verrouillage progressif après échecs de connexion répétés (1 min, 5 min, 10 min, puis verrouillage permanent nécessitant une réinitialisation par un administrateur)
 - Emails normalisés en minuscules pour éviter les doublons de compte
 - Modification du profil (nom, prénom, email)
@@ -47,9 +49,10 @@ Application de gestion de tâches et de projets en équipe, avec authentificatio
 - Recherche et filtrage des tâches par statut
 - Détail d'une tâche en modale, avec édition et suppression
 
-**Permissions**
-- Le propriétaire d'un projet gère les membres et peut accorder à chacun le droit de gérer les tâches
-- Un membre sans ce droit peut consulter le projet et déplacer les tâches, mais ne peut ni en créer, ni en modifier le contenu, ni en supprimer
+**Permissions et invitations**
+- Le propriétaire d'un projet invite des membres par email ; l'invitation (lien à usage unique, 24h) doit être acceptée avant que la personne n'accède au projet
+- Le propriétaire peut annuler une invitation en attente ou retirer un membre déjà présent
+- Le propriétaire accorde à chaque membre le droit de gérer les tâches ; sans ce droit, un membre peut consulter le projet et déplacer les tâches, mais ne peut ni en créer, ni en modifier le contenu, ni en supprimer
 - Un rôle ADMIN a accès en lecture à l'ensemble des projets et peut réinitialiser le mot de passe d'un compte verrouillé
 
 ## Stack technique
@@ -76,6 +79,8 @@ openssl rand -base64 64
 
 docker compose up --build
 ```
+
+L'envoi d'email (confirmation de compte, mot de passe oublié, invitations) est désactivé par défaut : les emails sont simplement loggés. Pour les envoyer réellement, renseigner `MAIL_ENABLED=true` et les identifiants SMTP dans `.env` (voir les commentaires du fichier).
 
 - Frontend : http://localhost:4200
 - API : http://localhost:8080/api
@@ -120,10 +125,10 @@ npx ng serve
 ## Tests
 
 ```bash
-# Backend : 68 tests (unitaires + intégration via Testcontainers)
+# Backend : 97 tests (unitaires + intégration via Testcontainers)
 cd Backend && ./mvnw test
 
-# Frontend : 102 tests (Vitest)
+# Frontend : 122 tests (Vitest)
 cd frontend && npx ng test --watch=false
 
 # End-to-end : 5 scénarios (Playwright, nécessite le backend et le frontend démarrés)
@@ -144,6 +149,7 @@ Le projet a fait l'objet d'un audit orienté OWASP, avec exploitation réelle de
 - Contrôle d'accès vérifié à chaque niveau (projet, tâche, membre) plutôt que délégué au seul frontend
 - Requêtes paramétrées via JPA/Hibernate, aucune concaténation de SQL
 - Gestionnaire d'erreurs global évitant toute fuite de détail d'implémentation dans les réponses HTTP
+- Tokens de confirmation d'email, de réinitialisation de mot de passe et d'invitation à usage unique, expirant automatiquement au bout de 24 heures
 
 ## Intégration continue
 
