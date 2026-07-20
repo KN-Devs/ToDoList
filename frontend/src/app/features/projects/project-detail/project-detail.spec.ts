@@ -57,7 +57,11 @@ describe('ProjectDetail', () => {
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => '1' } } } },
         {
           provide: AuthService,
-          useValue: { currentUser: () => ({ email: userEmail }), isAdmin: () => isAdmin },
+          useValue: {
+            currentUser: () => ({ email: userEmail }),
+            isAdmin: () => isAdmin,
+            isAuthenticated: () => false,
+          },
         },
       ],
     });

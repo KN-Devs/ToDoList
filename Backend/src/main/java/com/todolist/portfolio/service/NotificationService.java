@@ -9,6 +9,7 @@ import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.repository.NotificationRepository;
 import com.todolist.portfolio.repository.TaskRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -25,24 +26,36 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final TaskRepository taskRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    public NotificationService(NotificationRepository notificationRepository, TaskRepository taskRepository) {
+    public NotificationService(NotificationRepository notificationRepository, TaskRepository taskRepository,
+                                SimpMessagingTemplate messagingTemplate) {
         this.notificationRepository = notificationRepository;
         this.taskRepository = taskRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     public void notifyProjectInvitation(User recipient, User inviter, Project project) {
         String message = inviter.getPrenom() + " " + inviter.getNom()
                 + " vous a invité à rejoindre le projet \"" + project.getNom() + "\"";
-        notificationRepository.save(new Notification(
-                recipient, NotificationType.PROJECT_INVITATION, message, project, null, Instant.now()));
+        Notification notification = new Notification(
+                recipient, NotificationType.PROJECT_INVITATION, message, project, null, Instant.now());
+        notificationRepository.save(notification);
+        push(notification);
     }
 
     public void notifyTaskComment(User recipient, User commenter, Task task) {
         String message = commenter.getPrenom() + " " + commenter.getNom()
                 + " a commenté la tâche \"" + task.getNom() + "\"";
-        notificationRepository.save(new Notification(
-                recipient, NotificationType.TASK_COMMENT, message, task.getProject(), task, Instant.now()));
+        Notification notification = new Notification(
+                recipient, NotificationType.TASK_COMMENT, message, task.getProject(), task, Instant.now());
+        notificationRepository.save(notification);
+        push(notification);
+    }
+
+    private void push(Notification notification) {
+        messagingTemplate.convertAndSendToUser(
+                notification.getRecipient().getEmail(), "/queue/notifications", toResponse(notification));
     }
 
     /** Invitation acceptée ou annulée : la notification correspondante n'a plus lieu d'être. */

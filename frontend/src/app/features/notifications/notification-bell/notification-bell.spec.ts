@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { vi } from 'vitest';
 import { Notification } from '../../../core/models/notification.model';
 import { NotificationService } from '../../../core/services/notification.service';
+import { RealtimeService } from '../../../core/services/realtime.service';
 import { NotificationBell } from './notification-bell';
 
 const INVITATION: Notification = {
@@ -35,6 +36,8 @@ describe('NotificationBell', () => {
   };
   let navigate: ReturnType<typeof vi.fn>;
   let component: NotificationBell;
+  let notificationEvents$: Subject<Notification>;
+  let realtimeService: { watchNotifications: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -46,11 +49,14 @@ describe('NotificationBell', () => {
       markAllRead: vi.fn().mockReturnValue(of(undefined)),
     };
     navigate = vi.fn();
+    notificationEvents$ = new Subject<Notification>();
+    realtimeService = { watchNotifications: vi.fn().mockReturnValue(notificationEvents$) };
 
     TestBed.configureTestingModule({
       imports: [NotificationBell],
       providers: [
         { provide: NotificationService, useValue: notificationService },
+        { provide: RealtimeService, useValue: realtimeService },
         { provide: Router, useValue: { navigate } },
       ],
     });
@@ -143,5 +149,41 @@ describe('NotificationBell', () => {
   it('trackNotification() returns distinct keys for persisted and virtual notifications', () => {
     expect(component.trackNotification(INVITATION)).toBe('n1');
     expect(component.trackNotification(DUE_SOON)).toBe('t42');
+  });
+
+  describe('real-time push', () => {
+    it('subscribes to the user notification queue on init', () => {
+      component.ngOnInit();
+
+      expect(realtimeService.watchNotifications).toHaveBeenCalledTimes(1);
+    });
+
+    it('increments the unread count when a notification is pushed', () => {
+      component.ngOnInit();
+      component.unreadCount.set(2);
+
+      notificationEvents$.next(INVITATION);
+
+      expect(component.unreadCount()).toBe(3);
+    });
+
+    it('prepends the pushed notification to the list when the panel is open', () => {
+      component.ngOnInit();
+      component.panelOpen.set(true);
+      component.notifications.set([DUE_SOON]);
+
+      notificationEvents$.next(INVITATION);
+
+      expect(component.notifications()).toEqual([INVITATION, DUE_SOON]);
+    });
+
+    it('does not touch the visible list when the panel is closed', () => {
+      component.ngOnInit();
+      component.notifications.set([DUE_SOON]);
+
+      notificationEvents$.next(INVITATION);
+
+      expect(component.notifications()).toEqual([DUE_SOON]);
+    });
   });
 });

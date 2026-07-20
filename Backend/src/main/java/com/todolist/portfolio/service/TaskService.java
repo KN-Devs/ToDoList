@@ -1,5 +1,6 @@
 package com.todolist.portfolio.service;
 
+import com.todolist.portfolio.dto.TaskEvent;
 import com.todolist.portfolio.dto.TaskRequest;
 import com.todolist.portfolio.dto.TaskResponse;
 import com.todolist.portfolio.entity.Project;
@@ -7,6 +8,7 @@ import com.todolist.portfolio.entity.Task;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.repository.TaskRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,10 +21,13 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final ProjectService projectService;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    public TaskService(TaskRepository taskRepository, ProjectService projectService) {
+    public TaskService(TaskRepository taskRepository, ProjectService projectService,
+                        SimpMessagingTemplate messagingTemplate) {
         this.taskRepository = taskRepository;
         this.projectService = projectService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     public TaskResponse create(Integer projectId, TaskRequest request, User currentUser) {
@@ -32,7 +37,10 @@ public class TaskService {
         Task task = new Task(null, request.getNom(), request.getDescription(), request.getStatus(), currentUser, project);
         task.setDueDate(request.getDueDate());
         taskRepository.save(task);
-        return toResponse(task);
+
+        TaskResponse response = toResponse(task);
+        broadcast(projectId, "CREATED", response);
+        return response;
     }
 
     public List<TaskResponse> getAllForProject(Integer projectId, User currentUser) {
@@ -69,13 +77,24 @@ public class TaskService {
 
         task.setStatus(request.getStatus());
         taskRepository.save(task);
-        return toResponse(task);
+
+        TaskResponse response = toResponse(task);
+        broadcast(project.getId(), "UPDATED", response);
+        return response;
     }
 
     public void delete(Integer id, User currentUser) {
         Task task = findTaskOrThrow(id);
         projectService.checkCanManageTasks(task.getProject(), currentUser);
+
+        TaskResponse response = toResponse(task);
+        Integer projectId = task.getProject().getId();
         taskRepository.delete(task);
+        broadcast(projectId, "DELETED", response);
+    }
+
+    private void broadcast(Integer projectId, String action, TaskResponse task) {
+        messagingTemplate.convertAndSend("/topic/projects/" + projectId + "/tasks", new TaskEvent(action, task));
     }
 
     public Task findTaskOrThrow(Integer id) {

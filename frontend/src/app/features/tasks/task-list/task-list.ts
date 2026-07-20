@@ -1,10 +1,12 @@
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { DatePipe } from '@angular/common';
-import { Component, HostListener, Input, OnChanges, computed, signal } from '@angular/core';
+import { Component, HostListener, Input, OnChanges, OnDestroy, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { AttachmentService } from '../../../core/services/attachment.service';
 import { CommentService } from '../../../core/services/comment.service';
+import { RealtimeService } from '../../../core/services/realtime.service';
 import { TaskService } from '../../../core/services/task.service';
 import { Attachment } from '../../../core/models/attachment.model';
 import { Comment } from '../../../core/models/comment.model';
@@ -12,6 +14,7 @@ import {
   TASK_STATUSES,
   TASK_STATUS_LABELS,
   Task,
+  TaskEvent,
   TaskRequest,
   TaskStatus,
 } from '../../../core/models/task.model';
@@ -27,7 +30,7 @@ export type DueDateUrgency = 'overdue' | 'soon';
   templateUrl: './task-list.html',
   styleUrl: './task-list.scss',
 })
-export class TaskList implements OnChanges {
+export class TaskList implements OnChanges, OnDestroy {
   @Input({ required: true }) projectId!: number;
   @Input() canManage = true;
 
@@ -90,15 +93,54 @@ export class TaskList implements OnChanges {
   readonly attachmentError = signal<string | null>(null);
   readonly uploadingAttachment = signal(false);
 
+  private taskEventsSubscription: Subscription | null = null;
+  private commentEventsSubscription: Subscription | null = null;
+
   constructor(
     private readonly taskService: TaskService,
     private readonly commentService: CommentService,
     private readonly attachmentService: AttachmentService,
+    private readonly realtimeService: RealtimeService,
     protected readonly authService: AuthService
   ) {}
 
   ngOnChanges(): void {
     this.reload();
+    this.watchTaskEvents();
+  }
+
+  ngOnDestroy(): void {
+    this.taskEventsSubscription?.unsubscribe();
+    this.commentEventsSubscription?.unsubscribe();
+  }
+
+  private watchTaskEvents(): void {
+    this.taskEventsSubscription?.unsubscribe();
+    this.taskEventsSubscription = this.realtimeService
+      .watchProjectTasks(this.projectId)
+      .subscribe((event) => this.applyTaskEvent(event));
+  }
+
+  private applyTaskEvent(event: TaskEvent): void {
+    switch (event.action) {
+      case 'CREATED':
+        this.tasks.update((tasks) =>
+          tasks.some((t) => t.id === event.task.id) ? tasks : [...tasks, event.task]
+        );
+        break;
+      case 'UPDATED':
+        this.tasks.update((tasks) => tasks.map((t) => (t.id === event.task.id ? event.task : t)));
+        if (this.selectedTask()?.id === event.task.id) {
+          this.selectedTask.set(event.task);
+        }
+        break;
+      case 'DELETED':
+        this.tasks.update((tasks) => tasks.filter((t) => t.id !== event.task.id));
+        if (this.selectedTask()?.id === event.task.id) {
+          this.closeDetail();
+        }
+        break;
+    }
   }
 
   reload(): void {
@@ -126,7 +168,10 @@ export class TaskList implements OnChanges {
 
     this.taskService.create(this.projectId, this.newTask).subscribe({
       next: (task) => {
-        this.tasks.update((tasks) => [...tasks, task]);
+        // La diffusion WebSocket du même événement peut arriver avant cette
+        // réponse HTTP (le serveur diffuse avant de répondre) : sans cette
+        // vérification, ce même onglet ajouterait la tâche deux fois.
+        this.tasks.update((tasks) => (tasks.some((t) => t.id === task.id) ? tasks : [...tasks, task]));
         this.newTask = { nom: '', description: '', status: 'TODO', dueDate: null };
         this.creating.set(false);
         this.activeTab.set('board');
@@ -207,6 +252,7 @@ export class TaskList implements OnChanges {
     this.selectedTask.set(task);
     this.loadComments(task.id);
     this.loadAttachments(task.id);
+    this.watchCommentEvents(task.id);
   }
 
   closeDetail(): void {
@@ -216,6 +262,23 @@ export class TaskList implements OnChanges {
     this.newCommentContent = '';
     this.commentError.set(null);
     this.attachmentError.set(null);
+    this.commentEventsSubscription?.unsubscribe();
+    this.commentEventsSubscription = null;
+  }
+
+  private watchCommentEvents(taskId: number): void {
+    this.commentEventsSubscription?.unsubscribe();
+    this.commentEventsSubscription = this.realtimeService
+      .watchTaskComments(this.projectId, taskId)
+      .subscribe((event) => {
+        if (event.action === 'CREATED') {
+          this.comments.update((comments) =>
+            comments.some((c) => c.id === event.comment.id) ? comments : [...comments, event.comment]
+          );
+        } else {
+          this.comments.update((comments) => comments.filter((c) => c.id !== event.comment.id));
+        }
+      });
   }
 
   loadComments(taskId: number): void {
@@ -242,7 +305,11 @@ export class TaskList implements OnChanges {
 
     this.commentService.create(taskId, this.newCommentContent).subscribe({
       next: (comment) => {
-        this.comments.update((comments) => [...comments, comment]);
+        // Même course possible qu'à la création d'une tâche : la diffusion
+        // WebSocket du commentaire peut arriver avant cette réponse HTTP.
+        this.comments.update((comments) =>
+          comments.some((c) => c.id === comment.id) ? comments : [...comments, comment]
+        );
         this.newCommentContent = '';
         this.postingComment.set(false);
       },

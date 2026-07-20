@@ -1,12 +1,13 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AuthService } from '../../../core/services/auth.service';
 import { AttachmentService } from '../../../core/services/attachment.service';
 import { CommentService } from '../../../core/services/comment.service';
+import { RealtimeService } from '../../../core/services/realtime.service';
 import { Attachment } from '../../../core/models/attachment.model';
-import { Comment } from '../../../core/models/comment.model';
-import { Task } from '../../../core/models/task.model';
+import { Comment, CommentEvent } from '../../../core/models/comment.model';
+import { Task, TaskEvent } from '../../../core/models/task.model';
 import { TaskService } from '../../../core/services/task.service';
 import { TaskList } from './task-list';
 
@@ -57,6 +58,12 @@ describe('TaskList', () => {
   };
   let component: TaskList;
   let confirmSpy: ReturnType<typeof vi.spyOn>;
+  let taskEvents$: Subject<TaskEvent>;
+  let commentEvents$: Subject<CommentEvent>;
+  let realtimeService: {
+    watchProjectTasks: ReturnType<typeof vi.fn>;
+    watchTaskComments: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     taskService = {
@@ -76,6 +83,12 @@ describe('TaskList', () => {
       download: vi.fn(),
       delete: vi.fn(),
     };
+    taskEvents$ = new Subject<TaskEvent>();
+    commentEvents$ = new Subject<CommentEvent>();
+    realtimeService = {
+      watchProjectTasks: vi.fn().mockReturnValue(taskEvents$),
+      watchTaskComments: vi.fn().mockReturnValue(commentEvents$),
+    };
 
     TestBed.configureTestingModule({
       imports: [TaskList],
@@ -83,6 +96,7 @@ describe('TaskList', () => {
         { provide: TaskService, useValue: taskService },
         { provide: CommentService, useValue: commentService },
         { provide: AttachmentService, useValue: attachmentService },
+        { provide: RealtimeService, useValue: realtimeService },
         { provide: AuthService, useValue: { isAdmin: () => false, currentUser: () => ({ email: 'marie@example.com' }) } },
       ],
     });
@@ -560,6 +574,133 @@ describe('TaskList', () => {
       nextMonth.setDate(nextMonth.getDate() + 30);
 
       expect(component.dueDateUrgency(nextMonth.toISOString().slice(0, 10))).toBeNull();
+    });
+  });
+
+  describe('create/comment race against their own WebSocket broadcast', () => {
+    it('createTask() does not duplicate a task whose CREATED broadcast already arrived', () => {
+      component.ngOnChanges();
+      const created: Task = { ...TASK, id: 2, nom: 'Nouvelle tâche' };
+      // Le serveur diffuse l'événement WebSocket avant de répondre à la requête
+      // HTTP : dans le pire cas, l'onglet à l'origine de l'action reçoit la
+      // diffusion avant même la réponse de sa propre requête.
+      taskEvents$.next({ action: 'CREATED', task: created });
+      taskService.create.mockReturnValue(of(created));
+      component.newTask = { nom: 'Nouvelle tâche', description: 'Desc', status: 'TODO' };
+
+      component.createTask();
+
+      expect(component.tasks()).toEqual([TASK, created]);
+    });
+
+    it('postComment() does not duplicate a comment whose CREATED broadcast already arrived', () => {
+      component.openDetail(TASK);
+      commentEvents$.next({ action: 'CREATED', taskId: TASK.id, comment: COMMENT });
+      commentService.create.mockReturnValue(of(COMMENT));
+      component.newCommentContent = 'Un commentaire';
+
+      component.postComment(TASK.id);
+
+      expect(component.comments()).toEqual([COMMENT]);
+    });
+  });
+
+  describe('real-time task events', () => {
+    it('ngOnChanges() subscribes to task events for the project', () => {
+      component.ngOnChanges();
+
+      expect(realtimeService.watchProjectTasks).toHaveBeenCalledWith(PROJECT_ID);
+    });
+
+    it('a CREATED event appends the task, deduplicating by id', () => {
+      component.ngOnChanges();
+
+      taskEvents$.next({ action: 'CREATED', task: { ...TASK, id: 99, nom: 'Autre tâche' } });
+      expect(component.tasks()).toEqual([TASK, { ...TASK, id: 99, nom: 'Autre tâche' }]);
+
+      taskEvents$.next({ action: 'CREATED', task: TASK });
+      expect(component.tasks()).toEqual([TASK, { ...TASK, id: 99, nom: 'Autre tâche' }]);
+    });
+
+    it('an UPDATED event replaces the task in place', () => {
+      component.ngOnChanges();
+      const updated: Task = { ...TASK, nom: 'Renommée' };
+
+      taskEvents$.next({ action: 'UPDATED', task: updated });
+
+      expect(component.tasks()).toEqual([updated]);
+    });
+
+    it('an UPDATED event refreshes the open detail modal if it targets the selected task', () => {
+      component.ngOnChanges();
+      component.openDetail(TASK);
+      const updated: Task = { ...TASK, nom: 'Renommée' };
+
+      taskEvents$.next({ action: 'UPDATED', task: updated });
+
+      expect(component.selectedTask()).toEqual(updated);
+    });
+
+    it('a DELETED event removes the task', () => {
+      component.ngOnChanges();
+
+      taskEvents$.next({ action: 'DELETED', task: TASK });
+
+      expect(component.tasks()).toEqual([]);
+    });
+
+    it('a DELETED event closes the detail modal if it targets the selected task', () => {
+      component.ngOnChanges();
+      component.openDetail(TASK);
+
+      taskEvents$.next({ action: 'DELETED', task: TASK });
+
+      expect(component.selectedTask()).toBeNull();
+    });
+
+    it('a new ngOnChanges() call re-subscribes instead of stacking subscriptions', () => {
+      component.ngOnChanges();
+      const firstSubscription = taskEvents$.observed;
+      component.ngOnChanges();
+
+      expect(firstSubscription).toBe(true);
+      expect(realtimeService.watchProjectTasks).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('real-time comment events', () => {
+    it('openDetail() subscribes to comment events for the task', () => {
+      component.openDetail(TASK);
+
+      expect(realtimeService.watchTaskComments).toHaveBeenCalledWith(PROJECT_ID, TASK.id);
+    });
+
+    it('a CREATED comment event appends the comment, deduplicating by id', () => {
+      component.openDetail(TASK);
+
+      commentEvents$.next({ action: 'CREATED', taskId: TASK.id, comment: COMMENT });
+      expect(component.comments()).toEqual([COMMENT]);
+
+      commentEvents$.next({ action: 'CREATED', taskId: TASK.id, comment: COMMENT });
+      expect(component.comments()).toEqual([COMMENT]);
+    });
+
+    it('a DELETED comment event removes the comment', () => {
+      component.openDetail(TASK);
+      commentEvents$.next({ action: 'CREATED', taskId: TASK.id, comment: COMMENT });
+
+      commentEvents$.next({ action: 'DELETED', taskId: TASK.id, comment: COMMENT });
+
+      expect(component.comments()).toEqual([]);
+    });
+
+    it('closeDetail() unsubscribes from comment events', () => {
+      component.openDetail(TASK);
+      component.closeDetail();
+
+      commentEvents$.next({ action: 'CREATED', taskId: TASK.id, comment: COMMENT });
+
+      expect(component.comments()).toEqual([]);
     });
   });
 
