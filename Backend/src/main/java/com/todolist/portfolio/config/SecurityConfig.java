@@ -3,6 +3,7 @@ package com.todolist.portfolio.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -12,6 +13,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -68,10 +70,19 @@ public class SecurityConfig {
                                 "/api/auth/register", "/api/auth/login", "/error",
                                 "/api/auth/confirm-email", "/api/auth/resend-confirmation",
                                 "/api/auth/forgot-password", "/api/auth/reset-password",
+                                "/api/auth/refresh", "/api/auth/logout",
                                 "/api/invitations/accept"
                         ).permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .anyRequest().authenticated()
+                )
+                // Sans entry point explicite, Spring Security renvoie 403 aussi bien pour
+                // une requête non authentifiée que pour un accès refusé, ce qui empêche le
+                // frontend de distinguer "il faut se reconnecter/rafraîchir le token" d'un
+                // vrai refus d'autorisation. On force donc 401 pour l'absence/invalidité
+                // d'authentification ; les refus d'autorisation restent en 403.
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

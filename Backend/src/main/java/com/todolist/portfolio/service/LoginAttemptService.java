@@ -20,9 +20,11 @@ public class LoginAttemptService {
     private static final int PERMANENT_LOCKOUT_STAGE = LOCKOUT_DURATIONS.length + 1;
 
     private final UserRepository userRepository;
+    private final RefreshTokenService refreshTokenService;
 
-    public LoginAttemptService(UserRepository userRepository) {
+    public LoginAttemptService(UserRepository userRepository, RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
+        this.refreshTokenService = refreshTokenService;
     }
 
     public void checkNotLocked(User user) {
@@ -65,6 +67,12 @@ public class LoginAttemptService {
         user.setLockoutStage(0);
         user.setLockedUntil(null);
         userRepository.save(user);
+
+        // Un mot de passe changé (par un admin ou via le lien "mot de passe oublié")
+        // invalide toutes les sessions existantes : si le mot de passe a été
+        // compromis, un éventuel attaquant avec un refresh token valide ne doit
+        // pas pouvoir continuer à obtenir de nouveaux access tokens.
+        refreshTokenService.revokeAllForUser(user);
     }
 
     private String lockMessage(User user) {

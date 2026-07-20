@@ -5,6 +5,7 @@ import com.todolist.portfolio.dto.AuthResponse;
 import com.todolist.portfolio.dto.ConfirmEmailRequest;
 import com.todolist.portfolio.dto.EmailOnlyRequest;
 import com.todolist.portfolio.dto.LoginRequest;
+import com.todolist.portfolio.dto.RefreshTokenRequest;
 import com.todolist.portfolio.dto.RegisterRequest;
 import com.todolist.portfolio.dto.ResetPasswordRequest;
 import com.todolist.portfolio.dto.UpdateProfileRequest;
@@ -16,6 +17,7 @@ import com.todolist.portfolio.repository.UserRepository;
 import com.todolist.portfolio.service.EmailService;
 import com.todolist.portfolio.service.JwtService;
 import com.todolist.portfolio.service.LoginAttemptService;
+import com.todolist.portfolio.service.RefreshTokenService;
 import com.todolist.portfolio.service.VerificationTokenService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -52,11 +54,13 @@ public class AuthController {
     private final LoginAttemptService loginAttemptService;
     private final VerificationTokenService verificationTokenService;
     private final EmailService emailService;
+    private final RefreshTokenService refreshTokenService;
 
     public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder,
                            JwtService jwtService, AuthenticationManager authenticationManager,
                            LoginAttemptService loginAttemptService,
-                           VerificationTokenService verificationTokenService, EmailService emailService) {
+                           VerificationTokenService verificationTokenService, EmailService emailService,
+                           RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -64,6 +68,7 @@ public class AuthController {
         this.loginAttemptService = loginAttemptService;
         this.verificationTokenService = verificationTokenService;
         this.emailService = emailService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @SecurityRequirements
@@ -91,8 +96,9 @@ public class AuthController {
         emailService.sendEmailConfirmation(user, confirmationToken.getToken());
 
         String token = jwtService.generateToken(user);
+        String refreshToken = refreshTokenService.issue(user);
 
-        return new AuthResponse(token);
+        return new AuthResponse(token, refreshToken);
     }
 
     @SecurityRequirements
@@ -120,13 +126,28 @@ public class AuthController {
             loginAttemptService.onSuccessfulLogin(authenticatedUser);
 
             String token = jwtService.generateToken(authenticatedUser);
-            return new AuthResponse(token);
+            String refreshToken = refreshTokenService.issue(authenticatedUser);
+            return new AuthResponse(token, refreshToken);
         } catch (BadCredentialsException ex) {
             if (user != null) {
                 loginAttemptService.onFailedLogin(user);
             }
             throw ex;
         }
+    }
+
+    @SecurityRequirements
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        User user = refreshTokenService.validate(request.refreshToken());
+        String token = jwtService.generateToken(user);
+        return new AuthResponse(token, request.refreshToken());
+    }
+
+    @SecurityRequirements
+    @PostMapping("/logout")
+    public void logout(@Valid @RequestBody RefreshTokenRequest request) {
+        refreshTokenService.revoke(request.refreshToken());
     }
 
     @SecurityRequirements
@@ -189,7 +210,8 @@ public class AuthController {
         userRepository.save(currentUser);
 
         String token = jwtService.generateToken(currentUser);
-        return new AuthResponse(token);
+        String refreshToken = refreshTokenService.issue(currentUser);
+        return new AuthResponse(token, refreshToken);
     }
 
     @PutMapping("/users/{id}/reset-password")
