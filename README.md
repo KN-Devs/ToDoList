@@ -52,10 +52,16 @@ Application de gestion de tâches et de projets en équipe, avec authentificatio
 - Commentaires sur une tâche, chacun pouvant supprimer les siens
 - Pièces jointes (5 Mo maximum par fichier), stockées en base de données pour survivre aux redéploiements
 
+**Temps réel**
+- Le tableau Kanban se met à jour instantanément chez tous les membres d'un projet lors de la création, la modification ou la suppression d'une tâche, sans rechargement de page
+- Les commentaires d'une tâche ouverte se synchronisent en direct entre tous les utilisateurs consultant la même tâche
+- La cloche de notifications reçoit les invitations à un projet et les commentaires en push, en plus du rafraîchissement périodique
+- Diffusion via WebSocket (STOMP), authentifiée par JWT à la connexion ; chaque abonnement à un projet est vérifié côté serveur pour empêcher qu'un utilisateur non autorisé n'écoute les tâches ou commentaires d'un projet auquel il n'a pas accès
+
 **Notifications**
 - Une cloche dans l'en-tête affiche les invitations reçues, les commentaires sur ses propres tâches et les échéances proches ou dépassées
-- Le nombre de notifications non lues est actualisé automatiquement (rafraîchissement périodique, sans WebSocket) ; la liste complète se charge à l'ouverture de la cloche
-- Les notifications d'échéance sont calculées à la volée à partir de l'état actuel des tâches plutôt que stockées, pour ne jamais devenir obsolètes
+- Le nombre de notifications non lues est actualisé automatiquement (rafraîchissement périodique) et complété par le push temps réel décrit ci-dessus ; la liste complète se charge à l'ouverture de la cloche
+- Les notifications d'échéance sont calculées à la volée à partir de l'état actuel des tâches plutôt que stockées, pour ne jamais devenir obsolètes (elles ne bénéficient donc que du rafraîchissement périodique, pas du push)
 
 **Permissions et invitations**
 - Le propriétaire d'un projet invite des membres par email ; l'invitation (lien à usage unique, 24h) doit être acceptée avant que la personne n'accède au projet
@@ -67,8 +73,8 @@ Application de gestion de tâches et de projets en équipe, avec authentificatio
 
 | Couche | Technologies |
 |---|---|
-| Backend | Spring Boot 4.1.0, Spring Security, Spring Data JPA, Flyway, JJWT |
-| Frontend | Angular 21 (composants standalone, signals, zoneless), Angular CDK (drag-and-drop) |
+| Backend | Spring Boot 4.1.0, Spring Security, Spring Data JPA, Flyway, JJWT, WebSocket (STOMP) |
+| Frontend | Angular 21 (composants standalone, signals, zoneless), Angular CDK (drag-and-drop), @stomp/stompjs |
 | Base de données | PostgreSQL 16 |
 | Tests backend | JUnit 5, Mockito, Testcontainers |
 | Tests frontend | Vitest |
@@ -133,10 +139,10 @@ npx ng serve
 ## Tests
 
 ```bash
-# Backend : 159 tests (unitaires + intégration via Testcontainers)
+# Backend : 173 tests (unitaires + intégration via Testcontainers)
 cd Backend && ./mvnw test
 
-# Frontend : 170 tests (Vitest)
+# Frontend : 195 tests (Vitest)
 cd frontend && npx ng test --watch=false
 
 # End-to-end : 5 scénarios (Playwright, nécessite le backend et le frontend démarrés)
@@ -160,6 +166,7 @@ Le projet a fait l'objet d'un audit orienté OWASP, avec exploitation réelle de
 - Tokens de confirmation d'email, de réinitialisation de mot de passe et d'invitation à usage unique, expirant automatiquement au bout de 24 heures
 - Refresh tokens stockés hachés (SHA-256) en base, jamais en clair ; révoqués automatiquement à la déconnexion et lors de tout changement de mot de passe
 - Réponses HTTP 401 (authentification manquante ou invalide) distinguées des 403 (authentifié mais non autorisé), pour que le frontend ne rafraîchisse un token que lorsque c'est réellement nécessaire
+- Les abonnements WebSocket sont vérifiés individuellement : un utilisateur authentifié ne peut s'abonner qu'aux tâches et commentaires des projets auxquels il a effectivement accès, pas en devinant un identifiant de projet
 
 ## Intégration continue
 

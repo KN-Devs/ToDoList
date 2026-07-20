@@ -15,6 +15,7 @@ import com.todolist.portfolio.repository.VerificationTokenRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -166,6 +167,17 @@ public class ProjectService {
         if (!isOwner && !isMember && !isAdmin) {
             throw new AccessDeniedException("Vous n'avez pas accès à ce projet");
         }
+    }
+
+    /**
+     * Variante utilisée par JwtChannelInterceptor : contrairement aux requêtes HTTP
+     * (couvertes par spring.jpa.open-in-view), le traitement des frames STOMP n'a pas
+     * de session Hibernate ambiante. Charger le projet et vérifier l'accès dans la
+     * même transaction garde sa collection "members" attachée le temps du contrôle.
+     */
+    @Transactional(readOnly = true)
+    public void checkCanView(Integer projectId, User user) {
+        checkCanView(findOrThrow(projectId), user);
     }
 
     public void checkCanManageTasks(Project project, User user) {

@@ -1,11 +1,13 @@
 package com.todolist.portfolio.service;
 
+import com.todolist.portfolio.dto.CommentEvent;
 import com.todolist.portfolio.dto.CommentResponse;
 import com.todolist.portfolio.entity.Task;
 import com.todolist.portfolio.entity.TaskComment;
 import com.todolist.portfolio.entity.User;
 import com.todolist.portfolio.repository.TaskCommentRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,13 +22,16 @@ public class TaskCommentService {
     private final TaskService taskService;
     private final ProjectService projectService;
     private final NotificationService notificationService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public TaskCommentService(TaskCommentRepository commentRepository, TaskService taskService,
-                               ProjectService projectService, NotificationService notificationService) {
+                               ProjectService projectService, NotificationService notificationService,
+                               SimpMessagingTemplate messagingTemplate) {
         this.commentRepository = commentRepository;
         this.taskService = taskService;
         this.projectService = projectService;
         this.notificationService = notificationService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     public List<CommentResponse> getForTask(Integer taskId, User currentUser) {
@@ -49,7 +54,9 @@ public class TaskCommentService {
             notificationService.notifyTaskComment(task.getUser(), currentUser, task);
         }
 
-        return toResponse(comment);
+        CommentResponse response = toResponse(comment);
+        broadcast(task.getProject().getId(), "CREATED", taskId, response);
+        return response;
     }
 
     public void delete(Integer taskId, Integer commentId, User currentUser) {
@@ -64,7 +71,15 @@ public class TaskCommentService {
             throw new AccessDeniedException("Vous ne pouvez supprimer que vos propres commentaires");
         }
 
+        CommentResponse response = toResponse(comment);
         commentRepository.delete(comment);
+        broadcast(task.getProject().getId(), "DELETED", taskId, response);
+    }
+
+    private void broadcast(Integer projectId, String action, Integer taskId, CommentResponse comment) {
+        messagingTemplate.convertAndSend(
+                "/topic/projects/" + projectId + "/tasks/" + taskId + "/comments",
+                new CommentEvent(action, taskId, comment));
     }
 
     private CommentResponse toResponse(TaskComment comment) {

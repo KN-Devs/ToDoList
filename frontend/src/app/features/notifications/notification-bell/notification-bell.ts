@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { interval, startWith, switchMap } from 'rxjs';
 import { Notification } from '../../../core/models/notification.model';
 import { NotificationService } from '../../../core/services/notification.service';
+import { RealtimeService } from '../../../core/services/realtime.service';
 
 const POLL_INTERVAL_MS = 30000;
 
@@ -25,6 +26,7 @@ export class NotificationBell implements OnInit {
 
   constructor(
     private readonly notificationService: NotificationService,
+    private readonly realtimeService: RealtimeService,
     private readonly router: Router
   ) {}
 
@@ -38,6 +40,16 @@ export class NotificationBell implements OnInit {
       .subscribe({
         next: (result) => this.unreadCount.set(result.count),
         error: () => {},
+      });
+
+    this.realtimeService
+      .watchNotifications()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((notification) => {
+        this.unreadCount.update((count) => count + 1);
+        if (this.panelOpen()) {
+          this.notifications.update((list) => [notification, ...list]);
+        }
       });
   }
 

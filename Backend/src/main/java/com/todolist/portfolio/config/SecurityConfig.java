@@ -74,6 +74,10 @@ public class SecurityConfig {
                                 "/api/invitations/accept"
                         ).permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        // La poignée de main WebSocket est en accès libre côté HTTP : un WebSocket
+                        // natif ne permet pas de joindre un en-tête Authorization. L'authentification
+                        // réelle se fait au niveau STOMP, sur la frame CONNECT (voir JwtChannelInterceptor).
+                        .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 // Sans entry point explicite, Spring Security renvoie 403 aussi bien pour

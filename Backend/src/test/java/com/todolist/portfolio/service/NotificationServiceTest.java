@@ -17,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -40,6 +41,9 @@ class NotificationServiceTest {
 
     @Mock
     private TaskRepository taskRepository;
+
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
 
     @InjectMocks
     private NotificationService notificationService;
@@ -70,6 +74,8 @@ class NotificationServiceTest {
         assertThat(saved.getType()).isEqualTo(NotificationType.PROJECT_INVITATION);
         assertThat(saved.getProject()).isEqualTo(bobProject);
         assertThat(saved.getMessage()).contains("Bob Dupont").contains("Projet de Bob");
+
+        verify(messagingTemplate).convertAndSendToUser(eq(carol.getEmail()), eq("/queue/notifications"), any());
     }
 
     @Test
@@ -84,6 +90,8 @@ class NotificationServiceTest {
         assertThat(saved.getType()).isEqualTo(NotificationType.TASK_COMMENT);
         assertThat(saved.getTask()).isEqualTo(bobTask);
         assertThat(saved.getProject()).isEqualTo(bobProject);
+
+        verify(messagingTemplate).convertAndSendToUser(eq(bob.getEmail()), eq("/queue/notifications"), any());
     }
 
     @Test

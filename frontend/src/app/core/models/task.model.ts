@@ -23,3 +23,10 @@ export interface TaskRequest {
   status: TaskStatus;
   dueDate?: string | null;
 }
+
+export type TaskEventAction = 'CREATED' | 'UPDATED' | 'DELETED';
+
+export interface TaskEvent {
+  action: TaskEventAction;
+  task: Task;
+}
