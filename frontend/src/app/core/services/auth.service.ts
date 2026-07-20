@@ -1,12 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
-import { Observable, switchMap, tap } from 'rxjs';
+import { Observable, catchError, map, of, switchMap, tap, throwError } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import {
   AuthResponse,
   ConfirmEmailRequest,
   EmailOnlyRequest,
   LoginRequest,
+  RefreshTokenRequest,
   RegisterRequest,
   ResetPasswordRequest,
   UpdateProfileRequest,
@@ -14,6 +15,7 @@ import {
 } from '../models/auth.model';
 
 const TOKEN_KEY = 'todolist.token';
+const REFRESH_TOKEN_KEY = 'todolist.refreshToken';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -29,21 +31,21 @@ export class AuthService {
 
   register(request: RegisterRequest): Observable<User> {
     return this.http.post<AuthResponse>(`${API_BASE_URL}/auth/register`, request).pipe(
-      tap((response) => this.setToken(response.token)),
+      tap((response) => this.setTokens(response.token, response.refreshToken)),
       switchMap(() => this.loadCurrentUser())
     );
   }
 
   login(request: LoginRequest): Observable<User> {
     return this.http.post<AuthResponse>(`${API_BASE_URL}/auth/login`, request).pipe(
-      tap((response) => this.setToken(response.token)),
+      tap((response) => this.setTokens(response.token, response.refreshToken)),
       switchMap(() => this.loadCurrentUser())
     );
   }
 
   updateProfile(request: UpdateProfileRequest): Observable<User> {
     return this.http.put<AuthResponse>(`${API_BASE_URL}/auth/me`, request).pipe(
-      tap((response) => this.setToken(response.token)),
+      tap((response) => this.setTokens(response.token, response.refreshToken)),
       switchMap(() => this.loadCurrentUser())
     );
   }
@@ -74,14 +76,46 @@ export class AuthService {
       .pipe(tap((user) => this.currentUserSignal.set(user)));
   }
 
-  logout(): void {
-    localStorage.removeItem(TOKEN_KEY);
-    this.tokenSignal.set(null);
-    this.currentUserSignal.set(null);
+  hasRefreshToken(): boolean {
+    return localStorage.getItem(REFRESH_TOKEN_KEY) !== null;
   }
 
-  private setToken(token: string): void {
+  /** Échange le refresh token stocké contre un nouvel access token. */
+  refresh(): Observable<string> {
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!refreshToken) {
+      return throwError(() => new Error('Aucun refresh token disponible'));
+    }
+
+    const request: RefreshTokenRequest = { refreshToken };
+    return this.http.post<AuthResponse>(`${API_BASE_URL}/auth/refresh`, request).pipe(
+      tap((response) => this.setTokens(response.token, response.refreshToken)),
+      map((response) => response.token)
+    );
+  }
+
+  logout(): void {
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    this.tokenSignal.set(null);
+    this.currentUserSignal.set(null);
+
+    if (refreshToken) {
+      // Révocation côté serveur en best-effort : la déconnexion côté client
+      // est déjà effective quoi qu'il arrive.
+      const request: RefreshTokenRequest = { refreshToken };
+      this.http
+        .post<void>(`${API_BASE_URL}/auth/logout`, request)
+        .pipe(catchError(() => of(undefined)))
+        .subscribe();
+    }
+  }
+
+  private setTokens(token: string, refreshToken: string): void {
     localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     this.tokenSignal.set(token);
   }
 }

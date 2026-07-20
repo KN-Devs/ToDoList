@@ -18,6 +18,11 @@ export interface UpdateProfileRequest {
 
 export interface AuthResponse {
   token: string;
+  refreshToken: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
 }
 
 export interface EmailOnlyRequest {

@@ -2,11 +2,7 @@
   @if (registered()) {
     <div class="auth-card">
       <h1>Compte créé</h1>
-      <p class="modal-description">
-        Un email de confirmation a été envoyé à ton adresse. Clique sur le lien qu'il contient pour
-        confirmer ton compte ; tant qu'il n'est pas confirmé, tu ne pourras pas te reconnecter après
-        expiration de ta session.
-      </p>
+      <p class="modal-description">Un email de confirmation a été envoyé à ton adresse. Clique sur le lien qu'il contient pour confirmer ton compte ; tant qu'il n'est pas confirmé, tu ne pourras pas te reconnecter après expiration de ta session.</p>
       <button type="button" (click)="continue()">Continuer</button>
     </div>
   } @else {

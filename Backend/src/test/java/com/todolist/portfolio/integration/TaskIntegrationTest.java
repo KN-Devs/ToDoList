@@ -197,10 +197,10 @@ class TaskIntegrationTest {
     }
 
     @Test
-    void accessTasksWithoutToken_returns403() {
+    void accessTasksWithoutToken_returns401() {
         ResponseEntity<String> response = restTemplate.getForEntity("/api/projects/1/tasks", String.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     @Test

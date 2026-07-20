@@ -35,7 +35,7 @@ Application de gestion de tâches et de projets en équipe, avec authentificatio
 ## Fonctionnalités
 
 **Comptes et authentification**
-- Inscription et connexion par JWT, mots de passe hachés avec BCrypt
+- Inscription et connexion par JWT (access token de 15 minutes) accompagné d'un refresh token (30 jours, révocable côté serveur) permettant de rester connecté sans réauthentification ; mots de passe hachés avec BCrypt
 - Politique de mot de passe (longueur minimale, majuscule, chiffre, caractère spécial)
 - Confirmation de l'adresse email par lien à usage unique (24h) ; la connexion est bloquée tant que l'email n'est pas confirmé
 - Mot de passe oublié : réinitialisation par lien à usage unique (24h)
@@ -125,10 +125,10 @@ npx ng serve
 ## Tests
 
 ```bash
-# Backend : 97 tests (unitaires + intégration via Testcontainers)
+# Backend : 111 tests (unitaires + intégration via Testcontainers)
 cd Backend && ./mvnw test
 
-# Frontend : 122 tests (Vitest)
+# Frontend : 129 tests (Vitest)
 cd frontend && npx ng test --watch=false
 
 # End-to-end : 5 scénarios (Playwright, nécessite le backend et le frontend démarrés)
@@ -150,6 +150,8 @@ Le projet a fait l'objet d'un audit orienté OWASP, avec exploitation réelle de
 - Requêtes paramétrées via JPA/Hibernate, aucune concaténation de SQL
 - Gestionnaire d'erreurs global évitant toute fuite de détail d'implémentation dans les réponses HTTP
 - Tokens de confirmation d'email, de réinitialisation de mot de passe et d'invitation à usage unique, expirant automatiquement au bout de 24 heures
+- Refresh tokens stockés hachés (SHA-256) en base, jamais en clair ; révoqués automatiquement à la déconnexion et lors de tout changement de mot de passe
+- Réponses HTTP 401 (authentification manquante ou invalide) distinguées des 403 (authentifié mais non autorisé), pour que le frontend ne rafraîchisse un token que lorsque c'est réellement nécessaire
 
 ## Intégration continue
 
