@@ -31,6 +31,9 @@ public class SecurityConfig {
     @Value("${cors.allowed-origins:http://localhost:4200}")
     private String allowedOrigins;
 
+    @Value("${metrics.scrape-token:}")
+    private String metricsScrapeToken;
+
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
@@ -78,6 +81,13 @@ public class SecurityConfig {
                         // natif ne permet pas de joindre un en-tête Authorization. L'authentification
                         // réelle se fait au niveau STOMP, sur la frame CONNECT (voir JwtChannelInterceptor).
                         .requestMatchers("/ws/**").permitAll()
+                        // /actuator/health reste accessible sans authentification (sonde de
+                        // disponibilité Render) ; management.endpoint.health.show-details=
+                        // when-authorized limite néanmoins le détail des composants aux ADMIN.
+                        // Les autres endpoints (metrics, prometheus, info) exposent des données
+                        // internes et sont réservés au rôle ADMIN.
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 // Sans entry point explicite, Spring Security renvoie 403 aussi bien pour
@@ -88,7 +98,8 @@ public class SecurityConfig {
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new MetricsScrapeAuthFilter(metricsScrapeToken), JwtAuthenticationFilter.class);
 
         return http.build();
     }
