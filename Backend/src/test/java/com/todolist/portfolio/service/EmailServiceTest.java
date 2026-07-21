@@ -38,6 +38,21 @@ class EmailServiceTest {
     }
 
     @Test
+    void sendEmailConfirmation_whenFromAddressIsBlank_fallsBackToDefaultSender() {
+        // Reproduit l'incident de production où mail.from résolvait à une
+        // chaîne vide (MAIL_FROM et MAIL_USERNAME tous deux absents) : sans ce
+        // filet de sécurité, MimeMessageHelper.setFrom("") fait échouer
+        // silencieusement tout envoi (MailParseException).
+        EmailService emailService = new EmailService(mailSender, true, "", "http://localhost:4200");
+
+        emailService.sendEmailConfirmation(bob, "some-token");
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        assertThat(captor.getValue().getFrom()).isEqualTo("noreply@todolist.app");
+    }
+
+    @Test
     void sendEmailConfirmation_whenEnabled_sendsMessageWithLink() {
         EmailService emailService = new EmailService(mailSender, true, "noreply@todolist.app", "http://localhost:4200");
 

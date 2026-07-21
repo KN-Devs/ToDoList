@@ -20,13 +20,20 @@ public class EmailService {
     private final String fromAddress;
     private final String frontendUrl;
 
+    private static final String DEFAULT_FROM_ADDRESS = "noreply@todolist.app";
+
     public EmailService(JavaMailSender mailSender,
                          @Value("${mail.enabled}") boolean enabled,
                          @Value("${mail.from}") String fromAddress,
                          @Value("${app.frontend-url}") String frontendUrl) {
         this.mailSender = mailSender;
         this.enabled = enabled;
-        this.fromAddress = fromAddress;
+        // Filet de sécurité : la chaîne de repli de la propriété mail.from ne
+        // couvre pas tous les cas (ex: MAIL_USERNAME défini ailleurs comme une
+        // chaîne vide plutôt qu'absent), et une adresse d'expéditeur vide fait
+        // échouer silencieusement tout envoi (MailParseException côté
+        // MimeMessageHelper), incident déjà rencontré en production.
+        this.fromAddress = (fromAddress == null || fromAddress.isBlank()) ? DEFAULT_FROM_ADDRESS : fromAddress;
         this.frontendUrl = frontendUrl;
     }
 
