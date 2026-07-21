@@ -32,6 +32,16 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handleResponseStatusException_with5xxStatus_preservesStatusAndReason() {
+        ResponseStatusException ex = new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Service indisponible");
+
+        ResponseEntity<String> response = handler.handleResponseStatusException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getBody()).isEqualTo("Service indisponible");
+    }
+
+    @Test
     void handleUnexpectedException_returns500WithoutLeakingInternals() {
         RuntimeException ex = new RuntimeException("NullPointerException at com.todolist.portfolio.internal.SecretClass");
 

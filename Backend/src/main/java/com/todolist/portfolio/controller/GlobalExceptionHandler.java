@@ -45,6 +45,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<String> handleResponseStatusException(ResponseStatusException ex) {
+        // Les 4xx sont des erreurs client attendues (validation, permissions...),
+        // pas dignes d'alerte. Un 5xx explicite reste anormal et doit ressortir
+        // au même niveau que les exceptions non gérées ci-dessous.
+        if (ex.getStatusCode().is5xxServerError()) {
+            log.error("Erreur serveur : {}", ex.getReason(), ex);
+        }
         return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
     }
 

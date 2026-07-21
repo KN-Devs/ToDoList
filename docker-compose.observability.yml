@@ -1,0 +1,33 @@
+# Surcouche optionnelle ajoutant Prometheus et Grafana pour une démonstration
+# locale de l'observabilité (métriques JVM/HTTP, dashboard préconfiguré).
+# Usage : docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build
+services:
+  backend:
+    environment:
+      # Jeton statique dédié au scraping (voir metrics.scrape-token dans
+      # application.properties) : un scraper Prometheus ne peut pas gérer un
+      # access token JWT expirant toutes les 15 minutes comme un ADMIN humain.
+      METRICS_SCRAPE_TOKEN: local-observability-demo-token
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus

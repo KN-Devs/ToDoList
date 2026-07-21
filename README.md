@@ -17,6 +17,7 @@ Application de gestion de tâches et de projets en équipe, avec authentificatio
 - [Démarrage avec Docker](#démarrage-avec-docker)
 - [Développement local](#développement-local)
 - [Tests](#tests)
+- [Observabilité en local](#observabilité-en-local)
 - [Documentation de l'API](#documentation-de-lapi)
 - [Sécurité](#sécurité)
 - [Intégration continue](#intégration-continue)
@@ -69,6 +70,13 @@ Application de gestion de tâches et de projets en équipe, avec authentificatio
 - Le propriétaire accorde à chaque membre le droit de gérer les tâches ; sans ce droit, un membre peut consulter le projet et déplacer les tâches, mais ne peut ni en créer, ni en modifier le contenu, ni en supprimer
 - Un rôle ADMIN a accès en lecture à l'ensemble des projets et peut réinitialiser le mot de passe d'un compte verrouillé
 
+**Observabilité**
+- `/actuator/health` reste public (sonde de disponibilité) ; les autres endpoints (metrics, prometheus, info, détail du health) sont réservés au rôle ADMIN
+- Chaque requête reçoit un identifiant de corrélation (repris de l'en-tête `X-Request-Id` si fourni, sinon généré), présent dans tous les logs qu'elle produit et renvoyé dans la réponse
+- Logs au format structuré (ECS) activables en production via une variable d'environnement, sans dépendance supplémentaire (support natif de Spring Boot)
+- Toute erreur serveur (5xx, exception non gérée) est journalisée au niveau ERROR avec l'identifiant de corrélation, prête à être branchée sur un service d'alerting
+- Une surcouche Docker Compose optionnelle ajoute Prometheus et Grafana avec un dashboard préconfiguré (requêtes HTTP, latence p95, mémoire JVM, pool de connexions, CPU) pour une démonstration locale — voir [Observabilité en local](#observabilité-en-local)
+
 ## Stack technique
 
 | Couche | Technologies |
@@ -76,6 +84,7 @@ Application de gestion de tâches et de projets en équipe, avec authentificatio
 | Backend | Spring Boot 4.1.0, Spring Security, Spring Data JPA, Flyway, JJWT, WebSocket (STOMP) |
 | Frontend | Angular 21 (composants standalone, signals, zoneless), Angular CDK (drag-and-drop), @stomp/stompjs |
 | Base de données | PostgreSQL 16 |
+| Observabilité | Spring Boot Actuator, Micrometer, Prometheus, Grafana |
 | Tests backend | JUnit 5, Mockito, Testcontainers |
 | Tests frontend | Vitest |
 | Tests end-to-end | Playwright |
@@ -139,7 +148,7 @@ npx ng serve
 ## Tests
 
 ```bash
-# Backend : 173 tests (unitaires + intégration via Testcontainers)
+# Backend : 193 tests (unitaires + intégration via Testcontainers)
 cd Backend && ./mvnw test
 
 # Frontend : 195 tests (Vitest)
@@ -150,6 +159,18 @@ cd e2e && npm ci && npx playwright test
 ```
 
 Les tests d'intégration backend démarrent leur propre conteneur PostgreSQL via Testcontainers ; aucune base de données locale n'est requise pour les lancer.
+
+## Observabilité en local
+
+Une surcouche Docker Compose optionnelle ajoute Prometheus et Grafana à la stack applicative, pour démontrer les métriques exposées par le backend sans rien déployer sur Render :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build
+```
+
+- Grafana : http://localhost:3000 (accès anonyme en lecture ; dashboard « ToDoList — Backend » préconfiguré)
+- Prometheus : http://localhost:9090
+- Le scraping utilise un jeton statique dédié (`METRICS_SCRAPE_TOKEN`, voir `docker-compose.observability.yml`), distinct de l'authentification JWT des comptes ADMIN : un scraper automatisé ne peut pas gérer un access token expirant toutes les 15 minutes
 
 ## Documentation de l'API
 
@@ -167,6 +188,7 @@ Le projet a fait l'objet d'un audit orienté OWASP, avec exploitation réelle de
 - Refresh tokens stockés hachés (SHA-256) en base, jamais en clair ; révoqués automatiquement à la déconnexion et lors de tout changement de mot de passe
 - Réponses HTTP 401 (authentification manquante ou invalide) distinguées des 403 (authentifié mais non autorisé), pour que le frontend ne rafraîchisse un token que lorsque c'est réellement nécessaire
 - Les abonnements WebSocket sont vérifiés individuellement : un utilisateur authentifié ne peut s'abonner qu'aux tâches et commentaires des projets auxquels il a effectivement accès, pas en devinant un identifiant de projet
+- Les endpoints Actuator exposant des données internes (metrics, prometheus, info, détail du health) sont réservés au rôle ADMIN ; seul `/actuator/health` reste public, sans détail des composants pour un appelant non authentifié
 
 ## Intégration continue
 
@@ -175,8 +197,9 @@ Chaque push et chaque pull request déclenchent quatre jobs indépendants sur Gi
 ## Structure du dépôt
 
 ```
-Backend/     API Spring Boot
-frontend/    Application Angular
-e2e/         Tests Playwright
-docs/        Ressources pour la documentation (captures d'écran)
+Backend/         API Spring Boot
+frontend/        Application Angular
+e2e/             Tests Playwright
+docs/            Ressources pour la documentation (captures d'écran)
+observability/   Configuration Prometheus/Grafana pour la démo locale
 ```

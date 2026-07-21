@@ -11,7 +11,7 @@ services:
     dockerfilePath: ./Backend/Dockerfile
     dockerContext: ./Backend
     plan: free
-    healthCheckPath: /v3/api-docs
+    healthCheckPath: /actuator/health
     envVars:
       # Généré avec `openssl rand -base64 64`, à saisir manuellement dans le
       # dashboard Render (jamais stocké dans ce fichier ni dans le dépôt).
